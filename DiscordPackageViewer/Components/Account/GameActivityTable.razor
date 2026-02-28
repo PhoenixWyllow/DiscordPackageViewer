@@ -1,0 +1,42 @@
+@* Game activity statistics table — own render boundary. *@
+
+@if (Stats.Any())
+{
+    <h3 class="section-title">Game Activity</h3>
+    <div class="card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Application ID</th>
+                    <th>Total Duration</th>
+                    <th>First Played</th>
+                    <th>Last Played</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var stat in sorted)
+                {
+                    var duration = TimeSpan.FromSeconds(stat.TotalDuration);
+                    <tr>
+                        <td>@stat.ApplicationId</td>
+                        <td>@($"{duration.Days}d {duration.Hours}h {duration.Minutes}m")</td>
+                        <td>@(stat.FirstPlayedAt ?? "—")</td>
+                        <td>@(stat.LastPlayedAt ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ActivityStat> Stats { get; set; } = [];
+
+    private IReadOnlyList<ActivityStat> sorted = [];
+
+    protected override void OnParametersSet()
+    {
+        sorted = Stats.OrderByDescending(s => s.TotalDuration).ToList();
+    }
+}

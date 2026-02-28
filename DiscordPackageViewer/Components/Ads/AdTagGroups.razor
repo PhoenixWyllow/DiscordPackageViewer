@@ -1,0 +1,35 @@
+@{
+    var groups = GetTagGroups(Traits);
+    var anyTags = groups.Any(g => g.Items.Any());
+}
+
+@foreach (var group in groups.Where(g => g.Items.Any()))
+{
+    <ChipCloud Items="group.Items" Title="@group.Label" CssClass="chip-accent" />
+}
+
+@if (!anyTags)
+{
+    <div class="card">
+        <p class="text-muted">No targeting categories assigned to your profile.</p>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public AdTraits Traits { get; set; } = default!;
+
+    private static (string Label, List<string> Items)[] GetTagGroups(AdTraits traits) =>
+    [
+        ("Game Names (365d)", traits.GameNamesL365),
+        ("Game Names (90d)", traits.GameNamesL90),
+        ("Genre Names (90d)", traits.GenreNamesL90),
+        ("Theme Names (90d)", traits.ThemeNamesL90),
+        ("Mobile Genre Names", traits.MobileGenreNames),
+        ("ML Mobile Genres", traits.MlMobileGenreNamesV1),
+        ("Movie & TV Genres", traits.MovieAndTvGenreNames),
+        ("Music & Audio Genres", traits.MusicAndAudioGenreNames),
+        ("Custom Audiences", traits.CustomAudiences),
+        ("Quest Enrolled", traits.QuestHistoryEnrolled),
+        ("Quest Rewards Claimed", traits.QuestHistoryRewardClaimed),
+    ];
+}

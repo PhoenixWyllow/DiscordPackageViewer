@@ -158,7 +158,7 @@ public class Relationship
     public string Id { get; set; } = "";
 
     [JsonPropertyName("type")]
-    public int Type { get; set; }
+    public string Type { get; set; } = "";
 
     [JsonPropertyName("nickname")]
     public string? Nickname { get; set; }

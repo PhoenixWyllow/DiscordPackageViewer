@@ -1,0 +1,49 @@
+@* Server card grid — reused on Dashboard and Servers page. *@
+
+@if (Servers.Any())
+{
+    @if (Title is not null)
+    {
+        <h3 class="section-title">@Title</h3>
+    }
+    <div class="card-grid" style="margin-bottom: 24px;">
+        @foreach (var server in Servers.OrderBy(s => s.DisplayName))
+        {
+            <div class="server-card" @onclick="() => OnSelect.InvokeAsync(server)">
+                <div class="server-icon">
+                    @if (server.IconDataUrl is not null)
+                    {
+                        <img src="@server.IconDataUrl" alt="@server.DisplayName" />
+                    }
+                    else
+                    {
+                        @server.DisplayName[..Math.Min(2, server.DisplayName.Length)].ToUpper()
+                    }
+                </div>
+                <div class="server-info">
+                    <div class="server-name">@server.DisplayName</div>
+                    <div class="server-detail">
+                        @server.Channels.Count channels
+                        @if (server.Emojis.Any())
+                        {
+                            <span> · @server.Emojis.Count emoji</span>
+                        }
+                        @if (ShowAuditCount && server.AuditLog.Any())
+                        {
+                            <span> · @server.AuditLog.Count audit entries</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyCollection<LoadedServer> Servers { get; set; } = [];
+
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public bool ShowAuditCount { get; set; }
+    [Parameter] public EventCallback<LoadedServer> OnSelect { get; set; }
+}

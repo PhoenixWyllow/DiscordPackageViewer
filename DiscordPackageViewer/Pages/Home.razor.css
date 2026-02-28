@@ -1,0 +1,2 @@
+/* Privacy badge */
+.privacy-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 4px; background-color: rgba(87, 242, 135, 0.1); color: var(--text-positive); font-size: 0.75rem; font-weight: 600; }

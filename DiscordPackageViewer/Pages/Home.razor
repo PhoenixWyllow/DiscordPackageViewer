@@ -1,12 +1,26 @@
 ﻿@page "/"
 @inject PackageLoaderService Loader
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Discord Package Viewer</PageTitle>
 
 @if (!Loader.IsLoaded)
 {
-    <div class="upload-zone">
+    <div id="upload-dropzone"
+         class="upload-zone @(isDragOver ? "drop-active" : "")"
+         style="position: relative;"
+         @ondragenter="OnDragEnter" @ondragenter:preventDefault
+         @ondragover="OnDragOver" @ondragover:preventDefault
+         @ondragleave="OnDragLeave">
+
+        @if (isReading)
+        {
+            <div class="reading-overlay">
+                <div class="reading-spinner"></div>
+                <div class="reading-text">@readingStatus</div>
+            </div>
+        }
         <div class="upload-icon">📦</div>
         <h2>Discord Package Viewer</h2>
         <p>Load your Discord data package to explore your messages, account info, servers, and more. Everything runs locally in your browser — no data is ever sent anywhere.</p>
@@ -16,15 +30,32 @@
             <InputFile OnChange="OnFileSelected" accept=".zip" style="display: none;" />
         </label>
 
+        <p class="text-muted" style="font-size: 0.8125rem; margin: 0;">or drag &amp; drop a <code style="color: var(--text-link);">.zip</code> file here</p>
+
         <div class="privacy-badge mt-2">
-            🔒 100% Client-Side — Zero Data Exfiltration
+            <a href="privacy" style="color: inherit; text-decoration: none;">🔒 100% Client-Side — Zero Data Exfiltration</a>
         </div>
 
+        <div class="mt-1" style="font-size: 0.8125rem;">
+            <a href="@AppConstants.GitHubRepo" target="_blank" rel="noopener noreferrer"
+               style="color: var(--text-muted); text-decoration: none;">
+                💻 View on GitHub
+            </a>
+        </div>
+
+        @if (validationError is not null)
+        {
+            <p style="color: var(--text-danger); margin-top: 12px; text-align: center; max-width: 400px;">@validationError</p>
+        }
         @if (Loader.Error is not null)
         {
             <p style="color: var(--text-danger); margin-top: 12px;">@Loader.Error</p>
         }
     </div>
+
+    <!-- Hidden InputFile for drag-and-drop (JS forwards dropped files here) -->
+    <InputFile id="drop-file-input" OnChange="OnFileSelected" accept=".zip"
+               style="position: absolute; width: 0; height: 0; overflow: hidden; opacity: 0; pointer-events: none;" />
 }
 else
 {
@@ -32,18 +63,134 @@ else
 }
 
 @code {
+    private bool isDragOver;
+    private bool isReading;
+    private string readingStatus = "";
+    private string? validationError;
+    private bool dropZoneInitialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!Loader.IsLoaded && !dropZoneInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("initDropZone", "upload-dropzone", "drop-file-input");
+                dropZoneInitialized = true;
+            }
+            catch { /* element may not be in DOM yet */ }
+        }
+    }
+
+    private void OnDragEnter(DragEventArgs e) => isDragOver = true;
+    private void OnDragOver(DragEventArgs e) => isDragOver = true;
+    private void OnDragLeave(DragEventArgs e) => isDragOver = false;
+
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
+        isDragOver = false;
+        validationError = null;
         var file = e.File;
         if (file is null) return;
 
-        // Read the file into a MemoryStream BEFORE any state change triggers
+        await ValidateAndLoad(file);
+    }
+
+    private async Task ValidateAndLoad(IBrowserFile file)
+    {
+        // Validate file extension
+        if (!file.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            validationError = "Please select a .zip file. The Discord data package is downloaded as a ZIP archive.";
+            return;
+        }
+
+        // Validate reasonable size
+        if (file.Size == 0)
+        {
+            validationError = "The selected file is empty.";
+            return;
+        }
+
+        if (file.Size > 1024L * 1024 * 1024)
+        {
+            validationError = "File exceeds 1 GB. Please select a smaller Discord data package.";
+            return;
+        }
+
+        // Show reading overlay
+        isReading = true;
+        readingStatus = $"Reading {file.Name} ({(file.Size / 1024.0 / 1024.0):F1} MB)\u2026";
+        StateHasChanged();
+        await Task.Yield(); // let the UI render
+
+        // Read into MemoryStream BEFORE any state change triggers
         // a re-render (which removes <InputFile> from DOM and kills the JS ref).
-        // Pass the stream directly — do NOT call .ToArray() to avoid an extra copy.
         var ms = new MemoryStream();
-        await file.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024).CopyToAsync(ms);
+        try
+        {
+            await file.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024).CopyToAsync(ms);
+        }
+        catch (Exception ex)
+        {
+            isReading = false;
+            validationError = $"Failed to read file: {ex.Message}";
+            return;
+        }
         ms.Position = 0;
 
+        readingStatus = "Validating archive\u2026";
+        StateHasChanged();
+        await Task.Yield();
+
+        // Validate ZIP magic bytes (PK\x03\x04)
+        if (ms.Length < 4)
+        {
+            validationError = "File is too small to be a valid ZIP archive.";
+            return;
+        }
+
+        var header = new byte[4];
+        ms.Read(header, 0, 4);
+        ms.Position = 0;
+
+        if (header[0] != 0x50 || header[1] != 0x4B || header[2] != 0x03 || header[3] != 0x04)
+        {
+            isReading = false;
+            validationError = "This file does not appear to be a valid ZIP archive. Expected a Discord data package (.zip).";
+            return;
+        }
+
+        // Validate it's a Discord data package by checking for expected structure
+        try
+        {
+            using var probe = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: true);
+            var entryNames = probe.Entries.Select(e => e.FullName.Replace('\\', '/')).ToList();
+
+            bool hasAccount = entryNames.Any(n => n.Contains("Account/user.json", StringComparison.OrdinalIgnoreCase));
+            bool hasMessages = entryNames.Any(n => n.Contains("Messages/", StringComparison.OrdinalIgnoreCase));
+            bool hasReadme = entryNames.Any(n => n.EndsWith("README.txt", StringComparison.OrdinalIgnoreCase));
+
+            if (!hasAccount && !hasMessages && !hasReadme)
+            {
+                isReading = false;
+                validationError = "This ZIP file does not appear to be a Discord data package. Expected to find Account/user.json, Messages/, or README.txt inside.";
+                return;
+            }
+        }
+        catch
+        {
+            isReading = false;
+            validationError = "Failed to open the ZIP archive. The file may be corrupted.";
+            return;
+        }
+
+        readingStatus = "Opening package\u2026";
+        StateHasChanged();
+        await Task.Yield();
+
+        ms.Position = 0;
         await Loader.LoadFromZipAsync(ms);
+        isReading = false;
     }
 }

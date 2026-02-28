@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.IO.Compression;
-using System.Text;
 using System.Text.Json;
 using DiscordPackageViewer.Models;
 
@@ -13,13 +12,6 @@ namespace DiscordPackageViewer.Services;
 /// </summary>
 public class PackageLoaderService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true
-    };
-
     public PackageData? Data { get; private set; }
     public bool IsLoaded => Data is not null;
     public bool IsLoading { get; private set; }
@@ -46,225 +38,18 @@ public class PackageLoaderService
             SetProgress(0.05, "Opening archive…");
 
             var data = new PackageData();
+            var scratch = new ParseScratch();
 
             using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
+            var rootPrefix = ZipHelpers.DetectRootPrefix(archive);
 
-            // Detect root prefix from the first few entries
-            var rootPrefix = DetectRootPrefix(archive);
+            ProcessAllEntries(archive, rootPrefix, data, scratch);
 
-            var totalEntries = archive.Entries.Count;
-            var processed = 0;
-
-            // Scratch collections that accumulate per-channel / per-server data
-            var channelMessages = new Dictionary<string, List<DiscordMessage>>(StringComparer.OrdinalIgnoreCase);
-            var channelMeta = new Dictionary<string, ChannelMeta>(StringComparer.OrdinalIgnoreCase);
-            var serverParts = new Dictionary<string, ServerAccumulator>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var entry in archive.Entries)
-            {
-                if (entry.Length == 0 && entry.FullName.EndsWith('/'))
-                {
-                    processed++;
-                    continue;
-                }
-
-                var path = NormalizePath(entry.FullName);
-                var relative = rootPrefix.Length > 0 && path.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)
-                    ? path[rootPrefix.Length..]
-                    : path;
-
-                // Report progress based on entry count
-                processed++;
-                if (processed % 50 == 0 || processed == totalEntries)
-                {
-                    var pct = 0.05 + 0.85 * ((double)processed / totalEntries);
-                    SetProgress(pct, $"Processing {processed}/{totalEntries}…");
-                }
-
-                try
-                {
-                    // ── Account ────────────────────────────
-                    if (relative.Equals("Account/user.json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        data.UserProfile = Deserialize<UserProfile>(entry);
-                        continue;
-                    }
-
-                    if (IsAvatarPath(relative, out var avatarMime))
-                    {
-                        data.AvatarBytes = ReadBytes(entry);
-                        data.AvatarMimeType = avatarMime;
-                        continue;
-                    }
-
-                    // ── Messages ───────────────────────────
-                    if (relative.Equals("Messages/index.json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        data.ChannelIndex = Deserialize<Dictionary<string, string>>(entry) ?? [];
-                        continue;
-                    }
-
-                    if (relative.StartsWith("Messages/c", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var channelFolder = ExtractFolder(relative, "Messages/");
-                        if (channelFolder is null) continue;
-
-                        var fileName = relative[(("Messages/" + channelFolder + "/").Length)..];
-
-                        if (fileName.Equals("channel.json", StringComparison.OrdinalIgnoreCase))
-                        {
-                            channelMeta[channelFolder] = Deserialize<ChannelMeta>(entry) ?? new();
-                        }
-                        else if (fileName.Equals("messages.json", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var msgs = Deserialize<List<DiscordMessage>>(entry) ?? [];
-                            foreach (var msg in msgs)
-                            {
-                                if (DateTime.TryParseExact(msg.Timestamp, "yyyy-MM-dd HH:mm:ss",
-                                    CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
-                                    msg.ParsedTimestamp = dt;
-                            }
-                            msgs.Sort((a, b) => string.Compare(a.Timestamp, b.Timestamp, StringComparison.Ordinal));
-                            channelMessages[channelFolder] = msgs;
-                        }
-                        continue;
-                    }
-
-                    // ── Servers ────────────────────────────
-                    if (relative.StartsWith("Servers/", StringComparison.OrdinalIgnoreCase)
-                        && !relative.Equals("Servers/index.json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (relative.Equals("Servers/index.json", StringComparison.OrdinalIgnoreCase))
-                        {
-                            data.ServerIndex = Deserialize<Dictionary<string, string>>(entry) ?? [];
-                            continue;
-                        }
-
-                        var serverFolder = ExtractFolder(relative, "Servers/");
-                        if (serverFolder is null) continue;
-
-                        if (!serverParts.TryGetValue(serverFolder, out var acc))
-                        {
-                            acc = new ServerAccumulator();
-                            serverParts[serverFolder] = acc;
-                        }
-
-                        var sFile = relative[(("Servers/" + serverFolder + "/").Length)..];
-
-                        if (sFile.Equals("guild.json", StringComparison.OrdinalIgnoreCase))
-                            acc.Guild = Deserialize<GuildInfo>(entry);
-                        else if (sFile.Equals("channels.json", StringComparison.OrdinalIgnoreCase))
-                            acc.Channels = Deserialize<List<GuildChannel>>(entry) ?? [];
-                        else if (sFile.Equals("audit-log.json", StringComparison.OrdinalIgnoreCase))
-                            acc.AuditLog = Deserialize<List<AuditLogEntry>>(entry) ?? [];
-                        else if (sFile.Equals("emoji.json", StringComparison.OrdinalIgnoreCase))
-                            acc.Emojis = Deserialize<List<EmojiMeta>>(entry) ?? [];
-                        else if (sFile.Equals("webhooks.json", StringComparison.OrdinalIgnoreCase))
-                            acc.Webhooks = Deserialize<List<WebhookInfo>>(entry) ?? [];
-                        else if (IsIconPath(sFile, out var iconMime))
-                        {
-                            var iconBytes = ReadBytes(entry);
-                            acc.IconDataUrl = $"data:{iconMime};base64,{Convert.ToBase64String(iconBytes)}";
-                        }
-                        else if (sFile.StartsWith("emoji/", StringComparison.OrdinalIgnoreCase) && sFile.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var emojiId = Path.GetFileNameWithoutExtension(sFile);
-                            var emojiBytes = ReadBytes(entry);
-                            acc.EmojiDataUrls[emojiId] = $"data:image/png;base64,{Convert.ToBase64String(emojiBytes)}";
-                        }
-                        continue;
-                    }
-
-                    if (relative.Equals("Servers/index.json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        data.ServerIndex = Deserialize<Dictionary<string, string>>(entry) ?? [];
-                        continue;
-                    }
-
-                    // ── Ads ────────────────────────────────
-                    if (relative.Equals("Ads/traits.json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        data.AdTraits = Deserialize<AdTraits>(entry);
-                        continue;
-                    }
-
-                    // ── Support Tickets ────────────────────
-                    if (relative.Equals("Support_Tickets/tickets.json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        data.SupportTickets = Deserialize<Dictionary<string, SupportTicket>>(entry) ?? [];
-                        continue;
-                    }
-
-                    // ── Data Exports ───────────────────────
-                    if (relative.StartsWith("Account/user_data_exports/", StringComparison.OrdinalIgnoreCase)
-                        && relative.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var envelope = Deserialize<DataExportEnvelope>(entry);
-                        if (envelope is not null)
-                            data.DataExports.Add(envelope);
-                        continue;
-                    }
-
-                    // ── Activity (skip giant files to save memory — keep under 5 MB each) ──
-                    if (relative.StartsWith("Activity/", StringComparison.OrdinalIgnoreCase)
-                        && relative.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                        && entry.Length < 5L * 1024 * 1024)
-                    {
-                        try
-                        {
-                            var elements = Deserialize<List<JsonElement>>(entry);
-                            if (elements is not null)
-                            {
-                                var parts = relative.Split('/');
-                                var sectionName = parts.Length >= 2 ? parts[^2] : Path.GetFileNameWithoutExtension(relative);
-                                data.ActivityEvents ??= [];
-                                data.ActivityEvents[sectionName] = elements;
-                            }
-                        }
-                        catch { /* skip malformed */ }
-                        continue;
-                    }
-                }
-                catch
-                {
-                    // Skip individual entries that fail to parse
-                }
-            }
-
-            // ── Assemble channels ──────────────────────
             SetProgress(0.92, "Assembling channels…");
-            foreach (var folder in channelMessages.Keys.Union(channelMeta.Keys).Distinct())
-            {
-                var channelId = folder.StartsWith('c') ? folder[1..] : folder;
-                var displayName = data.ChannelIndex.TryGetValue(channelId, out var name) ? name : $"Channel {channelId}";
+            AssembleChannels(data, scratch);
 
-                data.Channels[channelId] = new LoadedChannel
-                {
-                    ChannelId = channelId,
-                    DisplayName = displayName,
-                    Meta = channelMeta.GetValueOrDefault(folder),
-                    Messages = channelMessages.GetValueOrDefault(folder) ?? []
-                };
-            }
-
-            // ── Assemble servers ───────────────────────
             SetProgress(0.95, "Assembling servers…");
-            foreach (var (folder, acc) in serverParts)
-            {
-                var displayName = data.ServerIndex.TryGetValue(folder, out var sname) ? sname : acc.Guild?.Name ?? folder;
-                data.Servers[folder] = new LoadedServer
-                {
-                    ServerId = folder,
-                    DisplayName = displayName,
-                    Guild = acc.Guild,
-                    Channels = acc.Channels,
-                    AuditLog = acc.AuditLog,
-                    Emojis = acc.Emojis,
-                    Webhooks = acc.Webhooks,
-                    IconDataUrl = acc.IconDataUrl,
-                    EmojiDataUrls = acc.EmojiDataUrls
-                };
-            }
+            AssembleServers(data, scratch);
 
             SetProgress(1.0, "Done!");
             Data = data;
@@ -290,6 +75,249 @@ public class PackageLoaderService
         NotifyStateChanged();
     }
 
+    // ─── Entry routing ───────────────────────────────────
+
+    private void ProcessAllEntries(ZipArchive archive, string rootPrefix, PackageData data, ParseScratch scratch)
+    {
+        var totalEntries = archive.Entries.Count;
+        var processed = 0;
+
+        foreach (var entry in archive.Entries)
+        {
+            if (entry.Length == 0 && entry.FullName.EndsWith('/'))
+            {
+                processed++;
+                continue;
+            }
+
+            var path = ZipHelpers.NormalizePath(entry.FullName);
+            var relative = rootPrefix.Length > 0 && path.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)
+                ? path[rootPrefix.Length..]
+                : path;
+
+            processed++;
+            if (processed % 50 == 0 || processed == totalEntries)
+            {
+                var pct = 0.05 + 0.85 * ((double)processed / totalEntries);
+                SetProgress(pct, $"Processing {processed}/{totalEntries}…");
+            }
+
+            try { RouteEntry(relative, entry, data, scratch); }
+            catch { /* Skip individual entries that fail to parse */ }
+        }
+    }
+
+    private static void RouteEntry(string relative, ZipArchiveEntry entry, PackageData data, ParseScratch scratch)
+    {
+        // Extract top-level folder: "Servers/guild.json" → "servers"
+        var slashIdx = relative.IndexOf('/');
+        if (slashIdx < 0) return;
+        var topFolder = relative[..slashIdx].ToLowerInvariant();
+
+        switch (topFolder)
+        {
+            case "account":         ParseAccount(relative, entry, data); break;
+            case "messages":        ParseMessages(relative, entry, data, scratch); break;
+            case "servers":         ParseServers(relative, entry, data, scratch); break;
+            case "ads":             ParseAds(relative, entry, data); break;
+            case "support_tickets": ParseSupport(relative, entry, data); break;
+            case "activity":        ParseActivity(relative, entry, data); break;
+        }
+    }
+
+    // ─── Section parsers ─────────────────────────────────
+
+    private static void ParseAccount(string relative, ZipArchiveEntry entry, PackageData data)
+    {
+        var fileName = relative["Account/".Length..];
+
+        switch (fileName.ToLowerInvariant())
+        {
+            case "user.json":
+                data.UserProfile = ZipHelpers.Deserialize<UserProfile>(entry);
+                break;
+
+            default:
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                if (nameWithoutExt.Equals("avatar", StringComparison.OrdinalIgnoreCase)
+                    && ZipHelpers.TryGetImageMime(fileName, out var avatarMime))
+                {
+                    // Account/avatar.png, .gif, etc.
+                    data.AvatarBytes = ZipHelpers.ReadBytes(entry);
+                    data.AvatarMimeType = avatarMime;
+                }
+                else if (fileName.StartsWith("user_data_exports/", StringComparison.OrdinalIgnoreCase)
+                         && fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                {
+                    var envelope = ZipHelpers.Deserialize<DataExportEnvelope>(entry);
+                    if (envelope is not null)
+                        data.DataExports.Add(envelope);
+                }
+                break;
+        }
+    }
+
+    private static void ParseMessages(string relative, ZipArchiveEntry entry, PackageData data, ParseScratch scratch)
+    {
+        var afterMessages = relative["Messages/".Length..];
+
+        // Messages/index.json — channel name lookup
+        if (afterMessages.Equals("index.json", StringComparison.OrdinalIgnoreCase))
+        {
+            data.ChannelIndex = ZipHelpers.Deserialize<Dictionary<string, string>>(entry) ?? [];
+            return;
+        }
+
+        // Messages/c<id>/<file>.json — per-channel data
+        if (!afterMessages.StartsWith('c')) return;
+
+        var channelFolder = ZipHelpers.ExtractFolder(relative, "Messages/");
+        if (channelFolder is null) return;
+
+        var fileName = afterMessages[(channelFolder.Length + 1)..];
+
+        switch (fileName.ToLowerInvariant())
+        {
+            case "channel.json":
+                scratch.ChannelMeta[channelFolder] = ZipHelpers.Deserialize<ChannelMeta>(entry) ?? new();
+                break;
+
+            case "messages.json":
+                var msgs = ZipHelpers.Deserialize<List<DiscordMessage>>(entry) ?? [];
+                foreach (var msg in msgs)
+                {
+                    if (DateTime.TryParseExact(msg.Timestamp, "yyyy-MM-dd HH:mm:ss",
+                        CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+                        msg.ParsedTimestamp = dt;
+                }
+                msgs.Sort((a, b) => string.Compare(a.Timestamp, b.Timestamp, StringComparison.Ordinal));
+                scratch.ChannelMessages[channelFolder] = msgs;
+                break;
+        }
+    }
+
+    private static void ParseServers(string relative, ZipArchiveEntry entry, PackageData data, ParseScratch scratch)
+    {
+        var afterServers = relative["Servers/".Length..];
+
+        // Servers/index.json — server name lookup
+        if (afterServers.Equals("index.json", StringComparison.OrdinalIgnoreCase))
+        {
+            data.ServerIndex = ZipHelpers.Deserialize<Dictionary<string, string>>(entry) ?? [];
+            return;
+        }
+
+        var serverFolder = ZipHelpers.ExtractFolder(relative, "Servers/");
+        if (serverFolder is null) return;
+
+        if (!scratch.ServerParts.TryGetValue(serverFolder, out var acc))
+        {
+            acc = new ServerAccumulator();
+            scratch.ServerParts[serverFolder] = acc;
+        }
+
+        var sFile = afterServers[(serverFolder.Length + 1)..];
+
+        switch (sFile.ToLowerInvariant())
+        {
+            case "guild.json":     acc.Guild    = ZipHelpers.Deserialize<GuildInfo>(entry); break;
+            case "channels.json":  acc.Channels = ZipHelpers.Deserialize<List<GuildChannel>>(entry) ?? []; break;
+            case "audit-log.json": acc.AuditLog = ZipHelpers.Deserialize<List<AuditLogEntry>>(entry) ?? []; break;
+            case "emoji.json":     acc.Emojis   = ZipHelpers.Deserialize<List<EmojiMeta>>(entry) ?? []; break;
+            case "webhooks.json":  acc.Webhooks = ZipHelpers.Deserialize<List<WebhookInfo>>(entry) ?? []; break;
+
+            default:
+                // icon.png / icon.gif / … — server icon
+                var iconName = Path.GetFileNameWithoutExtension(sFile);
+                if (iconName.Equals("icon", StringComparison.OrdinalIgnoreCase)
+                    && ZipHelpers.TryGetImageMime(sFile, out var iconMime))
+                {
+                    acc.IconDataUrl = ZipHelpers.ReadDataUrl(entry, iconMime);
+                }
+                // emoji/<id>.png — custom emoji
+                else if (sFile.StartsWith("emoji/", StringComparison.OrdinalIgnoreCase)
+                         && sFile.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    var emojiId = Path.GetFileNameWithoutExtension(sFile);
+                    acc.EmojiDataUrls[emojiId] = ZipHelpers.ReadDataUrl(entry, "image/png");
+                }
+                break;
+        }
+    }
+
+    private static void ParseAds(string relative, ZipArchiveEntry entry, PackageData data)
+    {
+        if (relative["Ads/".Length..].Equals("traits.json", StringComparison.OrdinalIgnoreCase))
+            data.AdTraits = ZipHelpers.Deserialize<AdTraits>(entry);
+    }
+
+    private static void ParseSupport(string relative, ZipArchiveEntry entry, PackageData data)
+    {
+        if (relative["Support_Tickets/".Length..].Equals("tickets.json", StringComparison.OrdinalIgnoreCase))
+            data.SupportTickets = ZipHelpers.Deserialize<Dictionary<string, SupportTicket>>(entry) ?? [];
+    }
+
+    private static void ParseActivity(string relative, ZipArchiveEntry entry, PackageData data)
+    {
+        if (!relative.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            || entry.Length >= 5L * 1024 * 1024)
+        {
+            return;
+        }
+
+        try
+        {
+            var elements = ZipHelpers.Deserialize<List<JsonElement>>(entry);
+            if (elements is not null)
+            {
+                var parts = relative.Split('/');
+                var sectionName = parts.Length >= 2 ? parts[^2] : Path.GetFileNameWithoutExtension(relative);
+                data.ActivityEvents ??= [];
+                data.ActivityEvents[sectionName] = elements;
+            }
+        }
+        catch { /* skip malformed */ }
+    }
+
+    // ─── Post-processing assembly ────────────────────────
+
+    private static void AssembleChannels(PackageData data, ParseScratch scratch)
+    {
+        foreach (var folder in scratch.ChannelMessages.Keys.Union(scratch.ChannelMeta.Keys).Distinct())
+        {
+            var channelId = folder.StartsWith('c') ? folder[1..] : folder;
+            var displayName = data.ChannelIndex.TryGetValue(channelId, out var name) ? name : $"Channel {channelId}";
+
+            data.Channels[channelId] = new LoadedChannel
+            {
+                ChannelId = channelId,
+                DisplayName = displayName,
+                Meta = scratch.ChannelMeta.GetValueOrDefault(folder),
+                Messages = scratch.ChannelMessages.GetValueOrDefault(folder) ?? []
+            };
+        }
+    }
+
+    private static void AssembleServers(PackageData data, ParseScratch scratch)
+    {
+        foreach (var (folder, acc) in scratch.ServerParts)
+        {
+            var displayName = data.ServerIndex.TryGetValue(folder, out var sname) ? sname : acc.Guild?.Name ?? folder;
+            data.Servers[folder] = new LoadedServer
+            {
+                ServerId = folder,
+                DisplayName = displayName,
+                Guild = acc.Guild,
+                Channels = acc.Channels,
+                AuditLog = acc.AuditLog,
+                Emojis = acc.Emojis,
+                Webhooks = acc.Webhooks,
+                IconDataUrl = acc.IconDataUrl,
+                EmojiDataUrls = acc.EmojiDataUrls
+            };
+        }
+    }
+
     // ─── Helpers ─────────────────────────────────────────
 
     private void SetProgress(double value, string message)
@@ -301,98 +329,14 @@ public class PackageLoaderService
 
     private void NotifyStateChanged() => OnStateChanged?.Invoke();
 
-    private static string NormalizePath(string path)
-        => path.Replace('\\', '/').TrimStart('/');
+    // ─── Internal types ──────────────────────────────────
 
-    private static string DetectRootPrefix(ZipArchive archive)
+    /// <summary>Scratch state accumulated during the single-pass ZIP scan.</summary>
+    private sealed class ParseScratch
     {
-        string? commonPrefix = null;
-        var sampled = 0;
-        foreach (var entry in archive.Entries)
-        {
-            var path = NormalizePath(entry.FullName);
-            var slashIndex = path.IndexOf('/');
-            if (slashIndex < 0) continue;
-            var prefix = path[..(slashIndex + 1)];
-
-            if (commonPrefix is null)
-                commonPrefix = prefix;
-            else if (commonPrefix != prefix)
-                return "";
-
-            if (++sampled > 20) break; // enough to decide
-        }
-        return commonPrefix ?? "";
-    }
-
-    /// <summary>
-    /// Extract the first folder name after a given base (e.g. "Messages/c123" → "c123").
-    /// </summary>
-    private static string? ExtractFolder(string relative, string basePath)
-    {
-        var rest = relative[basePath.Length..];
-        var slash = rest.IndexOf('/');
-        return slash > 0 ? rest[..slash] : null;
-    }
-
-    private static bool IsAvatarPath(string relative, out string mime)
-    {
-        mime = "";
-        foreach (var (ext, m) in ImageExtensions)
-        {
-            if (relative.Equals($"Account/avatar.{ext}", StringComparison.OrdinalIgnoreCase))
-            {
-                mime = m;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static bool IsIconPath(string fileName, out string mime)
-    {
-        mime = "";
-        foreach (var (ext, m) in ImageExtensions)
-        {
-            if (fileName.Equals($"icon.{ext}", StringComparison.OrdinalIgnoreCase))
-            {
-                mime = m;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static readonly (string ext, string mime)[] ImageExtensions =
-    [
-        ("gif", "image/gif"), ("png", "image/png"),
-        ("jpg", "image/jpeg"), ("jpeg", "image/jpeg"),
-        ("webp", "image/webp")
-    ];
-
-    /// <summary>Read a ZIP entry's raw bytes without intermediate buffering.</summary>
-    private static byte[] ReadBytes(ZipArchiveEntry entry)
-    {
-        using var s = entry.Open();
-        var buf = new byte[entry.Length];
-        int offset = 0, read;
-        while (offset < buf.Length && (read = s.Read(buf, offset, buf.Length - offset)) > 0)
-            offset += read;
-        return buf;
-    }
-
-    /// <summary>Deserialize a ZIP entry's JSON content directly from the stream.</summary>
-    private static T? Deserialize<T>(ZipArchiveEntry entry) where T : class
-    {
-        try
-        {
-            using var s = entry.Open();
-            return JsonSerializer.Deserialize<T>(s, JsonOptions);
-        }
-        catch
-        {
-            return null;
-        }
+        public Dictionary<string, List<DiscordMessage>> ChannelMessages { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, ChannelMeta> ChannelMeta { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, ServerAccumulator> ServerParts { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>Temporary accumulator for server data during single-pass extraction.</summary>

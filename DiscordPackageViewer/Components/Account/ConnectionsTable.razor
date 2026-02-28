@@ -1,0 +1,34 @@
+@* Connections table — own render boundary. *@
+
+@if (Connections.Any())
+{
+    <h3 class="section-title">Connections</h3>
+    <div class="card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Verified</th>
+                    <th>Visibility</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var conn in Connections)
+                {
+                    <tr>
+                        <td><span class="chip chip-accent">@conn.Type</span></td>
+                        <td>@conn.Name</td>
+                        <td>@(conn.Verified ? "✅" : "❌")</td>
+                        <td>@(conn.Visibility == 1 ? "Public" : "Private")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Connection> Connections { get; set; } = [];
+}

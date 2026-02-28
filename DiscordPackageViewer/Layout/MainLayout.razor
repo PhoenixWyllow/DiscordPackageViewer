@@ -1,12 +1,28 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
 @inject PackageLoaderService Loader
+@inject NavigationManager Nav
+
+<ToastContainer />
+
+@if (isNavigating)
+{
+    <div class="page-loading-overlay">
+        <div class="reading-spinner"></div>
+    </div>
+}
 
 @if (!Loader.IsLoaded && !Loader.IsLoading)
 {
-    <!-- Full-screen upload when no package loaded -->
+    <!-- Full-screen layout for pre-load pages (home, privacy) -->
     <div class="app-container">
         <div class="main-content">
-            @Body
+            <ErrorBoundary @ref="_errorBoundary">
+                <ChildContent>@Body</ChildContent>
+                <ErrorContent Context="exception">
+                    <ErrorReport Exception="exception" OnRecover="Recover" />
+                </ErrorContent>
+            </ErrorBoundary>
         </div>
     </div>
 }
@@ -31,19 +47,57 @@ else
     <div class="app-container">
         <NavMenu />
         <div class="main-content">
-            @Body
+            <ErrorBoundary @ref="_errorBoundary">
+                <ChildContent>@Body</ChildContent>
+                <ErrorContent Context="exception">
+                    <ErrorReport Exception="exception" OnRecover="Recover" />
+                </ErrorContent>
+            </ErrorBoundary>
         </div>
     </div>
 }
 
 @code {
+    private bool isNavigating;
+    private IDisposable? locationChangingReg;
+    private ErrorBoundary? _errorBoundary;
+
     protected override void OnInitialized()
     {
         Loader.OnStateChanged += StateHasChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        locationChangingReg = Nav.RegisterLocationChangingHandler(OnLocationChanging);
+    }
+
+    private ValueTask OnLocationChanging(LocationChangingContext ctx)
+    {
+        // Only show overlay when a data package is loaded (pages are heavy)
+        if (Loader.IsLoaded)
+        {
+            isNavigating = true;
+            StateHasChanged();
+        }
+        return ValueTask.CompletedTask;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        // Reset error boundary on navigation so the user isn't stuck
+        _errorBoundary?.Recover();
+
+        if (isNavigating)
+        {
+            isNavigating = false;
+            InvokeAsync(StateHasChanged);
+        }
     }
 
     public void Dispose()
     {
         Loader.OnStateChanged -= StateHasChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+        locationChangingReg?.Dispose();
     }
+
+    private void Recover() => _errorBoundary?.Recover();
 }

@@ -1,0 +1,40 @@
+@* Top channels bar chart — own render boundary (iterates all channels). *@
+
+@if (Channels.Any())
+{
+    <h3 class="section-title">Top Channels</h3>
+    <div class="card">
+        @foreach (var ch in topChannels)
+        {
+            var pct = maxCount > 0 ? (double)ch.MessageCount / maxCount * 100 : 0;
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                <div style="width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; color: var(--text-secondary);">
+                    @(ch.IsDm ? "🔒" : "#") @ch.DisplayName
+                </div>
+                <div style="flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; width: @(pct.ToString("F1"))%; background: var(--accent-primary); border-radius: 4px;"></div>
+                </div>
+                <div style="width: 60px; text-align: right; font-size: 0.8125rem; font-weight: 600;">
+                    @ch.MessageCount.ToString("N0")
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<string, LoadedChannel> Channels { get; set; } = new Dictionary<string, LoadedChannel>();
+
+    private List<LoadedChannel> topChannels = [];
+    private int maxCount;
+
+    protected override void OnParametersSet()
+    {
+        topChannels = Channels.Values
+            .OrderByDescending(c => c.MessageCount)
+            .Take(15)
+            .ToList();
+        maxCount = Channels.Values.Any() ? Channels.Values.Max(c => c.MessageCount) : 1;
+    }
+}

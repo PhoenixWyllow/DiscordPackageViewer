@@ -9,5 +9,6 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // Register the package loader as a singleton — shared across all components
 builder.Services.AddSingleton<PackageLoaderService>();
+builder.Services.AddSingleton<ToastService>();
 
 await builder.Build().RunAsync();

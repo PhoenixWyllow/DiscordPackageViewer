@@ -1,0 +1,26 @@
+@{
+    var groups = GetIdGroups(Traits).Where(g => g.Items.Any()).ToList();
+}
+
+@if (groups.Any())
+{
+    <h3 class="section-title">Raw IDs</h3>
+    @foreach (var group in groups)
+    {
+        <ChipCloud Items="group.Items" Title="@group.Label" />
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public AdTraits Traits { get; set; } = default!;
+
+    private static (string Label, List<string> Items)[] GetIdGroups(AdTraits traits) =>
+    [
+        ("Game IDs (30d)", traits.GameIdsL30),
+        ("Game IDs (90d)", traits.GameIdsL90),
+        ("Game IDs (365d)", traits.GameIdsL365),
+        ("Game IDs (730d)", traits.GameIdsL730),
+        ("Genre IDs (90d)", traits.GenreIdsL90),
+        ("Theme IDs (90d)", traits.ThemeIdsL90),
+    ];
+}

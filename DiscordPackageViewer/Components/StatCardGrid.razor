@@ -1,0 +1,25 @@
+@* Reusable stat card grid. Each item has Label, Value, and optional Sub text. *@
+
+@if (Items?.Any() == true)
+{
+    <div class="stat-cards">
+        @foreach (var item in Items)
+        {
+            <div class="stat-card">
+                <span class="stat-label">@item.Label</span>
+                <span class="stat-value">@item.Value</span>
+                @if (item.Sub is not null)
+                {
+                    <span class="stat-sub">@item.Sub</span>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<StatItem> Items { get; set; } = [];
+
+    public record StatItem(string Label, string Value, string? Sub = null);
+}

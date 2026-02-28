@@ -1,4 +1,5 @@
 ﻿@inject PackageLoaderService Loader
+@inject NavigationManager Nav
 
 <div class="nav-sidebar">
     <div class="nav-sidebar-header">
@@ -47,16 +48,47 @@
         <NavLink class="nav-item" href="privacy">
             <span class="nav-icon">🔒</span> Privacy Info
         </NavLink>
-        <div class="nav-item" @onclick="UnloadPackage">
-            <span class="nav-icon">📤</span> Unload Package
-        </div>
+        <a class="nav-item" href="@AppConstants.GitHubRepo" target="_blank" rel="noopener noreferrer">
+            <span class="nav-icon">💻</span> GitHub
+        </a>
+
+        @if (!showUnloadConfirm)
+        {
+            <div class="nav-item" @onclick="RequestUnload">
+                <span class="nav-icon">📤</span> Unload Package
+            </div>
+        }
+        else
+        {
+            <div class="card" style="margin: 8px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px;">
+                <p style="margin: 0 0 8px; font-size: 0.8125rem; color: var(--text-secondary);">Unload this package? All data will be cleared from memory.</p>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" style="flex: 1; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8125rem; background: var(--danger); color: #fff;" @onclick="ConfirmUnload">Unload</button>
+                    <button class="btn" style="flex: 1; padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 0.8125rem; background: transparent; color: var(--text-secondary);" @onclick="CancelUnload">Cancel</button>
+                </div>
+            </div>
+        }
     </div>
 </div>
 
 @code {
-    private void UnloadPackage()
+    private bool showUnloadConfirm;
+
+    private void RequestUnload()
     {
+        showUnloadConfirm = true;
+    }
+
+    private void ConfirmUnload()
+    {
+        showUnloadConfirm = false;
         Loader.Unload();
+        Nav.NavigateTo("/", forceLoad: false);
+    }
+
+    private void CancelUnload()
+    {
+        showUnloadConfirm = false;
     }
 }
 

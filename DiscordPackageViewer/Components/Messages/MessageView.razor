@@ -1,0 +1,86 @@
+@* Displays the selected channel header, message search, and virtualized message list. *@
+
+@if (Channel is null)
+{
+    <div class="upload-zone" style="height: 100%;">
+        <div class="upload-icon">💬</div>
+        <h2>Select a channel</h2>
+        <p class="text-muted">Choose a channel from the sidebar to view messages.</p>
+    </div>
+}
+else
+{
+    <div class="content-header">
+        <span>@(Channel.IsDm ? "🔒" : "#")</span>
+        @Channel.DisplayName
+        <span class="text-muted" style="font-size: 0.8125rem; font-weight: 400; margin-left: auto;">
+            @Channel.MessageCount.ToString("N0") messages
+        </span>
+    </div>
+
+    <!-- Message search -->
+    <div style="padding: 8px 16px; border-bottom: 1px solid var(--bg-tertiary);">
+        <div class="search-box">
+            <span>🔍</span>
+            <input type="text" placeholder="Search messages..." @bind="_messageSearch" @bind:event="oninput" />
+        </div>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; padding: 8px 0;">
+        @{
+            var messages = Channel.Messages
+                .Where(m => string.IsNullOrEmpty(_messageSearch) ||
+                    m.Contents.Contains(_messageSearch, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            string? lastDate = null;
+        }
+
+        <div class="message-list">
+            <Virtualize Items="messages" Context="msg" OverscanCount="20">
+                @{
+                    var msgDate = msg.ParsedTimestamp?.ToString("MMMM d, yyyy") ?? "Unknown Date";
+                    var showDivider = msgDate != lastDate;
+                    lastDate = msgDate;
+                }
+
+                @if (showDivider)
+                {
+                    <div class="message-date-divider">
+                        <span>@msgDate</span>
+                    </div>
+                }
+
+                <div class="message-group">
+                    <div class="message-item">
+                        <div class="message-timestamp">
+                            @(msg.ParsedTimestamp?.ToString("HH:mm") ?? "")
+                        </div>
+                        <div>
+                            <div class="message-content @(string.IsNullOrEmpty(msg.Contents) ? "empty-content" : "")">
+                                @(string.IsNullOrEmpty(msg.Contents) ? "(no text content)" : msg.Contents)
+                            </div>
+                            @if (!string.IsNullOrEmpty(msg.Attachments))
+                            {
+                                @foreach (var att in msg.Attachments.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    var filename = att.Contains('/') ? att[(att.LastIndexOf('/') + 1)..] : att;
+                                    <div class="message-attachment">📎 @filename</div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+            </Virtualize>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public LoadedChannel? Channel { get; set; }
+
+    private string _messageSearch = "";
+
+    /// <summary>Reset search when the channel changes.</summary>
+    public void ResetSearch() => _messageSearch = "";
+}

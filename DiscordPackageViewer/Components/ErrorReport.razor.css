@@ -1,0 +1,90 @@
+/* Error report panel */
+.error-report {
+    max-width: 700px;
+    margin: 24px auto;
+    padding: 24px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--text-danger);
+    border-radius: 8px;
+}
+
+.error-report-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.error-report-icon {
+    font-size: 1.5rem;
+}
+
+.error-report-message {
+    font-size: 0.9375rem;
+    color: var(--text-danger);
+    background: rgba(237, 66, 69, 0.08);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    word-break: break-word;
+}
+
+.error-report-toggle {
+    background: none;
+    border: none;
+    color: var(--text-link);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    padding: 0;
+    margin-bottom: 12px;
+}
+.error-report-toggle:hover {
+    text-decoration: underline;
+}
+
+.error-report-details {
+    margin-bottom: 16px;
+}
+
+.error-report-details summary {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.error-report-details pre {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+}
+
+.error-report-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.error-report-gh-btn {
+    background-color: #238636 !important;
+    text-decoration: none;
+    color: white !important;
+}
+.error-report-gh-btn:hover {
+    background-color: #2ea043 !important;
+    text-decoration: none;
+}

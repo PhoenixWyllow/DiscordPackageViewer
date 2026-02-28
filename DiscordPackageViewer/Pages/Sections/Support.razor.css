@@ -1,0 +1,7 @@
+/* Ticket comments */
+.ticket-comment { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.ticket-comment .comment-author { font-weight: 600; font-size: 0.875rem; min-width: 60px; }
+.ticket-comment .comment-author.author-user { color: var(--accent-primary); }
+.ticket-comment .comment-author.author-agent { color: var(--text-positive); }
+.ticket-comment .comment-body { flex: 1; font-size: 0.9375rem; color: var(--text-primary); line-height: 1.5; }
+.ticket-comment .comment-date { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }

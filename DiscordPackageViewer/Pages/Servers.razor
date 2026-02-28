@@ -1,172 +1,38 @@
 @page "/servers"
 @inject PackageLoaderService Loader
+@inject NavigationManager Nav
+@inject ToastService Toast
 
 <PageTitle>Servers — Discord Package Viewer</PageTitle>
 
 <div class="content-header">🏠 Servers</div>
 <div class="content-body">
-    @if (Loader.Data is not { } data || !data.Servers.Any())
+    @if (Loader.Data is { } data && data.Servers.Any() && selectedServer is null)
+    {
+        <ServerGrid Servers="data.Servers.Values.ToList()"
+                    Title="@($"Your Servers ({data.Servers.Count})")"
+                    ShowAuditCount="true"
+                    OnSelect="s => selectedServer = s" />
+    }
+    else if (selectedServer is not null)
+    {
+        <ServerDetail Server="selectedServer" OnBack="() => selectedServer = null" />
+    }
+    else if (Loader.IsLoaded)
     {
         <p class="text-muted">No server data loaded.</p>
-        return;
-    }
-
-    @if (selectedServer is null)
-    {
-        <!-- Server grid -->
-        <h3 class="section-title">Your Servers (@data.Servers.Count)</h3>
-        <div class="card-grid">
-            @foreach (var server in data.Servers.Values.OrderBy(s => s.DisplayName))
-            {
-                <div class="server-card" @onclick="() => selectedServer = server">
-                    <div class="server-icon">
-                        @if (server.IconDataUrl is not null)
-                        {
-                            <img src="@server.IconDataUrl" alt="@server.DisplayName" />
-                        }
-                        else
-                        {
-                            @server.DisplayName[..Math.Min(2, server.DisplayName.Length)].ToUpper()
-                        }
-                    </div>
-                    <div class="server-info">
-                        <div class="server-name">@server.DisplayName</div>
-                        <div class="server-detail">
-                            @server.Channels.Count channels
-                            @if (server.Emojis.Any())
-                            {
-                                <span> · @server.Emojis.Count emoji</span>
-                            }
-                            @if (server.AuditLog.Any())
-                            {
-                                <span> · @server.AuditLog.Count audit entries</span>
-                            }
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
-    }
-    else
-    {
-        <!-- Server detail view -->
-        <div style="margin-bottom: 16px;">
-            <span style="cursor: pointer; color: var(--text-link); font-size: 0.875rem;" @onclick="() => selectedServer = null">
-                ← Back to server list
-            </span>
-        </div>
-
-        <div class="card" style="display: flex; align-items: center; gap: 16px;">
-            <div class="server-icon" style="width: 64px; height: 64px; font-size: 1.5rem;">
-                @if (selectedServer.IconDataUrl is not null)
-                {
-                    <img src="@selectedServer.IconDataUrl" alt="@selectedServer.DisplayName" />
-                }
-                else
-                {
-                    @selectedServer.DisplayName[..Math.Min(2, selectedServer.DisplayName.Length)].ToUpper()
-                }
-            </div>
-            <div>
-                <div style="font-size: 1.25rem; font-weight: 700;">@selectedServer.DisplayName</div>
-                <div class="text-muted">ID: @selectedServer.ServerId</div>
-                @if (selectedServer.Guild?.Description is not null)
-                {
-                    <div style="margin-top: 4px; color: var(--text-secondary);">@selectedServer.Guild.Description</div>
-                }
-            </div>
-        </div>
-
-        <!-- Roles -->
-        @if (selectedServer.Guild?.Roles?.Any() == true)
-        {
-            <h3 class="section-title">Roles (@selectedServer.Guild.Roles.Count)</h3>
-            <div class="card" style="display: flex; flex-wrap: wrap; gap: 4px;">
-                @foreach (var role in selectedServer.Guild.Roles.Values.OrderBy(r => r.Position))
-                {
-                    var colorHex = role.Color > 0 ? $"#{role.Color:X6}" : "var(--text-secondary)";
-                    <span class="chip" style="border: 1px solid @colorHex; color: @colorHex;">
-                        @role.Name
-                    </span>
-                }
-            </div>
-        }
-
-        <!-- Channels -->
-        @if (selectedServer.Channels.Any())
-        {
-            <h3 class="section-title">Channels (@selectedServer.Channels.Count)</h3>
-            <div class="card">
-                <table class="data-table">
-                    <thead>
-                        <tr><th>Name</th><th>Type</th><th>Position</th></tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var ch in selectedServer.Channels.OrderBy(c => c.Position ?? 0))
-                        {
-                            <tr>
-                                <td># @ch.Name</td>
-                                <td class="text-muted">@(ch.Type switch { 0 => "Text", 2 => "Voice", 4 => "Category", 5 => "Announcement", 13 => "Stage", 15 => "Forum", _ => $"Type {ch.Type}" })</td>
-                                <td class="text-muted">@ch.Position</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-
-        <!-- Emoji -->
-        @if (selectedServer.Emojis.Any())
-        {
-            <h3 class="section-title">Emoji (@selectedServer.Emojis.Count)</h3>
-            <div class="card" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                @foreach (var emoji in selectedServer.Emojis)
-                {
-                    if (selectedServer.EmojiDataUrls.TryGetValue(emoji.Id, out var dataUrl))
-                    {
-                        <div title=":@emoji.Name:" style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                            <img src="@dataUrl" alt="@emoji.Name" style="width: 32px; height: 32px;" />
-                            <span style="font-size: 0.6875rem; color: var(--text-muted);">@emoji.Name</span>
-                        </div>
-                    }
-                    else
-                    {
-                        <span class="chip" title="@emoji.Id">:@emoji.Name:</span>
-                    }
-                }
-            </div>
-        }
-
-        <!-- Audit Log -->
-        @if (selectedServer.AuditLog.Any())
-        {
-            <h3 class="section-title">Audit Log (@selectedServer.AuditLog.Count entries)</h3>
-            <div class="card">
-                <table class="data-table">
-                    <thead>
-                        <tr><th>Action</th><th>User</th><th>Target</th><th>Reason</th></tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var entry in selectedServer.AuditLog.Take(100))
-                        {
-                            <tr>
-                                <td>@entry.ActionType</td>
-                                <td class="text-muted">@(entry.UserId ?? "—")</td>
-                                <td class="text-muted">@(entry.TargetId ?? "—")</td>
-                                <td>@(entry.Reason ?? "—")</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-                @if (selectedServer.AuditLog.Count > 100)
-                {
-                    <p class="text-muted mt-1">Showing first 100 of @selectedServer.AuditLog.Count entries.</p>
-                }
-            </div>
-        }
     }
 </div>
 
 @code {
     private LoadedServer? selectedServer;
+
+    protected override void OnInitialized()
+    {
+        if (!Loader.IsLoaded)
+        {
+            Toast.Show("Please load a package first.", ToastLevel.Warning);
+            Nav.NavigateTo("/");
+        }
+    }
 }

@@ -1,0 +1,67 @@
+@implements IDisposable
+@inject ToastService Toast
+
+<div class="toast-container">
+    @foreach (var item in _toasts)
+    {
+        <div class="toast toast-@item.Level.ToString().ToLowerInvariant() @(item.Dismissing ? "toast-exit" : "")">
+            <span class="toast-icon">@LevelIcon(item.Level)</span>
+            <span class="toast-text">@item.Text</span>
+            <span class="toast-close" @onclick="() => Dismiss(item)">✕</span>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<ToastItem> _toasts = [];
+
+    protected override void OnInitialized()
+    {
+        Toast.OnToast += HandleToast;
+    }
+
+    private async void HandleToast(ToastMessage msg)
+    {
+        var item = new ToastItem(msg.Text, msg.Level);
+        _toasts.Add(item);
+        await InvokeAsync(StateHasChanged);
+
+        // Auto-dismiss after duration
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(msg.DurationMs);
+            await InvokeAsync(() => Dismiss(item));
+        });
+    }
+
+    private async void Dismiss(ToastItem item)
+    {
+        if (item.Dismissing) return;
+        item.Dismissing = true;
+        StateHasChanged();
+
+        // Wait for CSS exit animation
+        await Task.Delay(300);
+        _toasts.Remove(item);
+        StateHasChanged();
+    }
+
+    private static string LevelIcon(ToastLevel level) => level switch
+    {
+        ToastLevel.Warning => "⚠️",
+        ToastLevel.Error => "❌",
+        _ => "ℹ️"
+    };
+
+    public void Dispose()
+    {
+        Toast.OnToast -= HandleToast;
+    }
+
+    private class ToastItem(string text, ToastLevel level)
+    {
+        public string Text { get; } = text;
+        public ToastLevel Level { get; } = level;
+        public bool Dismissing { get; set; }
+    }
+}

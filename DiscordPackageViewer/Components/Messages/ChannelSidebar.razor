@@ -1,0 +1,123 @@
+@* Channel sidebar with search, DM/server grouping, and drag-resizable width. *@
+
+<div class="channel-sidebar" style="width: @(SidebarWidth)px; min-width: @MinWidth; max-width: @MaxWidth;"
+     @ref="_sidebarRef">
+
+    <div class="channel-sidebar-search">
+        <div class="search-box">
+            <span>🔍</span>
+            <input type="text" placeholder="Search channels..." @bind="Search" @bind:event="oninput" />
+        </div>
+    </div>
+
+    <div class="channel-sidebar-list">
+        @if (_dmChannels.Any())
+        {
+            <div class="nav-category">Direct Messages (@_dmChannels.Count)</div>
+            @foreach (var ch in _dmChannels)
+            {
+                <div class="channel-list-item @(SelectedChannelId == ch.ChannelId ? "active" : "")"
+                     @onclick="() => OnChannelSelected.InvokeAsync(ch.ChannelId)">
+                    <span class="channel-hash">🔒</span>
+                    <span class="channel-sidebar-name">@StripDmPrefix(ch.DisplayName)</span>
+                    <span class="channel-count">@ch.MessageCount</span>
+                </div>
+            }
+        }
+
+        @foreach (var group in _serverGroups)
+        {
+            <div class="nav-category">@group.Key (@group.Count())</div>
+            @foreach (var ch in group.OrderByDescending(c => c.MessageCount))
+            {
+                <div class="channel-list-item @(SelectedChannelId == ch.ChannelId ? "active" : "")"
+                     @onclick="() => OnChannelSelected.InvokeAsync(ch.ChannelId)">
+                    <span class="channel-hash">#</span>
+                    <span class="channel-sidebar-name">@ch.DisplayName</span>
+                    <span class="channel-count">@ch.MessageCount</span>
+                </div>
+            }
+        }
+    </div>
+
+    <!-- Resize handle -->
+    <div class="channel-sidebar-resize-handle"
+         @onmousedown="OnResizeStart"
+         @onmousedown:stopPropagation></div>
+</div>
+
+@code {
+    private const string MinWidth = "180px";
+    private const string MaxWidth = "480px";
+    private const int MinWidthPx = 180;
+    private const int MaxWidthPx = 480;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<string, LoadedChannel> Channels { get; set; } = default!;
+
+    [Parameter] public string? SelectedChannelId { get; set; }
+    [Parameter] public EventCallback<string> OnChannelSelected { get; set; }
+
+    private string _search = "";
+    private string Search
+    {
+        get => _search;
+        set { _search = value; RebuildFiltered(); }
+    }
+
+    private int SidebarWidth { get; set; } = 260;
+
+    private ElementReference _sidebarRef;
+
+    private List<LoadedChannel> _dmChannels = [];
+    private List<IGrouping<string, LoadedChannel>> _serverGroups = [];
+
+    protected override void OnParametersSet() => RebuildFiltered();
+
+    private void RebuildFiltered()
+    {
+        var filtered = Channels.Values
+            .Where(c => string.IsNullOrEmpty(_search) ||
+                c.DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        _dmChannels = filtered.Where(c => c.IsDm).OrderByDescending(c => c.MessageCount).ToList();
+        _serverGroups = filtered.Where(c => !c.IsDm)
+            .GroupBy(c => c.ServerName ?? "Unknown")
+            .OrderBy(g => g.Key)
+            .ToList();
+    }
+
+    /// <summary>Strip the common "Direct Message with " prefix for the sidebar list.</summary>
+    private static string StripDmPrefix(string name)
+    {
+        const string prefix = "Direct Message with ";
+        return name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? name[prefix.Length..]
+            : name;
+    }
+
+    // ── Resize logic (mouse capture via JS interop) ──
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    private double _resizeStartX;
+    private int _resizeStartWidth;
+
+    private async Task OnResizeStart(MouseEventArgs e)
+    {
+        _resizeStartX = e.ClientX;
+        _resizeStartWidth = SidebarWidth;
+
+        // JS handles pointermove/pointerup on document so the drag doesn't break
+        // when the cursor leaves the handle.
+        await JS.InvokeVoidAsync("sidebarResize.start", _sidebarRef,
+            DotNetObjectReference.Create(this), _resizeStartX, _resizeStartWidth, MinWidthPx, MaxWidthPx);
+    }
+
+    [JSInvokable]
+    public void OnResizeEnd(int newWidth)
+    {
+        SidebarWidth = Math.Clamp(newWidth, MinWidthPx, MaxWidthPx);
+        StateHasChanged();
+    }
+}

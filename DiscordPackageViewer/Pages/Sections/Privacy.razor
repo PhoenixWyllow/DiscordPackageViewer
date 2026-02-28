@@ -1,8 +1,15 @@
 @page "/privacy"
+@inject PackageLoaderService Loader
 
 <PageTitle>Privacy — Discord Package Viewer</PageTitle>
 
-<div class="content-header">🔒 Privacy Information</div>
+<div class="content-header">
+    @if (!Loader.IsLoaded)
+    {
+        <a href="/" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; margin-right: 12px;">← Back</a>
+    }
+    🔒 Privacy Information
+</div>
 <div class="content-body">
     <h3 class="section-title">Your Data Stays on Your Machine</h3>
 

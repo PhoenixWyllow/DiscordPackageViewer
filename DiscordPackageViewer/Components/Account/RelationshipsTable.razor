@@ -1,0 +1,64 @@
+@* Relationships table — isolated render boundary for potentially 100s of rows. *@
+
+@if (Relationships.Any())
+{
+    <h3 class="section-title">Relationships (@Relationships.Count)</h3>
+    <div class="card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Username</th>
+                    <th>Display Name</th>
+                    <th>ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var rel in sorted)
+                {
+                    <tr>
+                        <td>
+                            <span class="chip @ChipClass(rel.Type)">
+                                @FormatType(rel.Type)
+                            </span>
+                        </td>
+                        <td>@(rel.User?.Username ?? "Unknown")</td>
+                        <td>@(rel.User?.GlobalName ?? "—")</td>
+                        <td class="text-muted">@rel.Id</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Relationship> Relationships { get; set; } = [];
+
+    private IReadOnlyList<Relationship> sorted = [];
+
+    protected override void OnParametersSet()
+    {
+        sorted = Relationships
+            .OrderBy(r => r.Type)
+            .ThenBy(r => r.User?.Username)
+            .ToList();
+    }
+
+    private static string ChipClass(string type) => type switch
+    {
+        var t when string.Equals(t, "FRIEND", StringComparison.OrdinalIgnoreCase) => "chip-positive",
+        var t when string.Equals(t, "BLOCKED", StringComparison.OrdinalIgnoreCase) => "chip-danger",
+        _ => ""
+    };
+
+    private static string FormatType(string type) => type switch
+    {
+        var t when string.Equals(t, "FRIEND", StringComparison.OrdinalIgnoreCase) => "Friend",
+        var t when string.Equals(t, "BLOCKED", StringComparison.OrdinalIgnoreCase) => "Blocked",
+        var t when string.Equals(t, "INCOMING", StringComparison.OrdinalIgnoreCase) => "Incoming",
+        var t when string.Equals(t, "OUTGOING", StringComparison.OrdinalIgnoreCase) => "Outgoing",
+        _ => type
+    };
+}

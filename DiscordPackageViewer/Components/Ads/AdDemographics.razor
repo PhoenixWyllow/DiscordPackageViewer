@@ -1,0 +1,16 @@
+<div class="card">
+    <div class="card-header">Demographics</div>
+    <table class="data-table">
+        <tr><td style="color: var(--text-muted); width: 200px;">Age Group</td><td>@(Traits.AgeGroup ?? "Unknown")</td></tr>
+        <tr><td style="color: var(--text-muted);">Region</td><td>@(Traits.RegRegion ?? "Unknown")</td></tr>
+        <tr><td style="color: var(--text-muted);">Country</td><td>@(Traits.RegCountryCode ?? "Unknown")</td></tr>
+        <tr><td style="color: var(--text-muted);">Primary Platform (30d)</td><td>@(Traits.PrimaryPlatformL30 ?? "Unknown")</td></tr>
+        <tr><td style="color: var(--text-muted);">Is Underage</td><td>@(Traits.IsUnderage ? "Yes" : "No")</td></tr>
+        <tr><td style="color: var(--text-muted);">Active Subscription</td><td>@(Traits.HasActiveSubscription ? "Yes" : "No")</td></tr>
+        <tr><td style="color: var(--text-muted);">Mobile Subscription</td><td>@(Traits.HasActiveMobileSubscription ? "Yes" : "No")</td></tr>
+    </table>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public AdTraits Traits { get; set; } = default!;
+}

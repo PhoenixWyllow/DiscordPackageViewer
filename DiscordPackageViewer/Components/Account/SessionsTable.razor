@@ -1,0 +1,43 @@
+@* Sessions table — own render boundary. *@
+
+@if (sessions.Any())
+{
+    <h3 class="section-title">Sessions (@sessions.Count)</h3>
+    <div class="card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Platform</th>
+                    <th>OS</th>
+                    <th>Created</th>
+                    <th>Last Used</th>
+                    <th>MFA</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var session in sessions)
+                {
+                    <tr>
+                        <td>@(session.UserData?.ClientInfo?.Platform ?? "—")</td>
+                        <td>@(session.UserData?.ClientInfo?.Os ?? "—")</td>
+                        <td>@(session.UserData?.CreationTime ?? "—")</td>
+                        <td>@(session.UserData?.ApproxLastUsedTime ?? "—")</td>
+                        <td>@(session.UserData?.IsMfa == true ? "✅" : "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<UserSession> Sessions { get; set; } = [];
+
+    private IReadOnlyList<UserSession> sessions = [];
+
+    protected override void OnParametersSet()
+    {
+        sessions = Sessions.Where(s => !s.IsSoftDeleted).ToList();
+    }
+}

@@ -1,0 +1,24 @@
+@* Reusable chip cloud — renders a flex-wrapped list of chips with optional section title. *@
+
+@if (Items?.Any() == true)
+{
+    @if (Title is not null)
+    {
+        <h3 class="section-title">@Title</h3>
+    }
+    <div class="card" style="display: flex; flex-wrap: wrap; gap: 4px;">
+        @foreach (var item in Items)
+        {
+            <span class="chip @CssClass" style="@ItemStyle">@item</span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Items { get; set; } = [];
+
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public string ItemStyle { get; set; } = "";
+}

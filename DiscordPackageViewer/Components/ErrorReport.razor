@@ -1,0 +1,75 @@
+@* Displays a caught exception with stack trace and a "Report on GitHub" button. *@
+
+<div class="error-report">
+    <div class="error-report-header">
+        <span class="error-report-icon">⚠️</span>
+        <span>Something went wrong</span>
+    </div>
+
+    <div class="error-report-message">@Exception.Message</div>
+
+    @if (_showDetails)
+    {
+        <details open class="error-report-details">
+            <summary>Stack Trace</summary>
+            <pre>@Exception.ToString()</pre>
+        </details>
+    }
+    else
+    {
+        <button class="error-report-toggle" @onclick="() => _showDetails = true">
+            Show details
+        </button>
+    }
+
+    <div class="error-report-actions">
+        <button class="upload-btn" @onclick="OnRecover">🔄 Recover</button>
+        <a class="upload-btn error-report-gh-btn" href="@IssueUrl" target="_blank" rel="noopener noreferrer">
+            🐛 Report on GitHub
+        </a>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Exception Exception { get; set; } = default!;
+    [Parameter] public EventCallback OnRecover { get; set; }
+
+    private bool _showDetails;
+
+    private string IssueUrl => AppConstants.NewIssueUrl(
+        $"[Bug] {TruncateForTitle(Exception.Message)}",
+        BuildIssueBody());
+
+    private string BuildIssueBody()
+    {
+        var trace = Exception.ToString();
+        // GitHub URL limit is ~8000 chars; trim the trace if needed
+        if (trace.Length > 4000)
+            trace = trace[..4000] + "\n... (truncated)";
+
+        return $"""
+            **Describe what you were doing**
+            <!-- What were you looking at when the error occurred? -->
+
+            **Error message**
+            ```
+            {Exception.Message}
+            ```
+
+            **Stack trace**
+            ```
+            {trace}
+            ```
+
+            **Environment**
+            - Browser: <!-- e.g. Chrome 120 -->
+            - OS: <!-- e.g. Windows 11 -->
+            """;
+    }
+
+    private static string TruncateForTitle(string msg)
+    {
+        const int max = 80;
+        return msg.Length <= max ? msg : msg[..(max - 1)] + "…";
+    }
+}

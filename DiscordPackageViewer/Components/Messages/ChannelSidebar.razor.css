@@ -1,0 +1,44 @@
+/* Sidebar layout */
+.channel-sidebar {
+    position: relative;
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--bg-tertiary);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.channel-sidebar-search {
+    padding: 12px;
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.channel-sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.channel-sidebar-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Resize handle */
+.channel-sidebar-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+}
+.channel-sidebar-resize-handle:hover,
+.channel-sidebar-resize-handle:active {
+    background: var(--accent-primary);
+    opacity: 0.5;
+    border-radius: 3px;
+}

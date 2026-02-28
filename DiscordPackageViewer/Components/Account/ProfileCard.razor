@@ -1,0 +1,49 @@
+<div class="card" style="display: flex; align-items: flex-start; gap: 20px;">
+    @if (AvatarBytes is not null)
+    {
+        <img src="data:@AvatarMimeType;base64,@Convert.ToBase64String(AvatarBytes)"
+             class="avatar avatar-lg" alt="Avatar" />
+    }
+    <div style="flex: 1;">
+        <div style="font-size: 1.5rem; font-weight: 700;">@(Profile.GlobalName ?? Profile.Username)</div>
+        <div class="text-muted">@Profile.Username@(Profile.Discriminator > 0 ? $"#{Profile.Discriminator}" : "")</div>
+        <table class="data-table mt-2" style="max-width: 500px;">
+            <tr><td style="color: var(--text-muted); width: 140px;">User ID</td><td>@Profile.Id</td></tr>
+            <tr>
+                <td style="color: var(--text-muted);">Email</td>
+                <td>
+                    @if (_emailRevealed)
+                    {
+                        <span>@Profile.Email</span>
+                    }
+                    else
+                    {
+                        <span>••••••••</span>
+                    }
+                    <span style="cursor: pointer; margin-left: 8px; font-size: 0.8125rem;"
+                          @onclick="() => _emailRevealed = !_emailRevealed">
+                        @(_emailRevealed ? "🙈 Hide" : "👁 Show")
+                    </span>
+                </td>
+            </tr>
+            <tr><td style="color: var(--text-muted);">Verified</td><td>@(Profile.Verified ? "✅ Yes" : "❌ No")</td></tr>
+            <tr><td style="color: var(--text-muted);">Mobile</td><td>@(Profile.HasMobile ? "📱 Yes" : "No")</td></tr>
+            @if (Profile.PremiumUntil is not null)
+            {
+                <tr><td style="color: var(--text-muted);">Premium Until</td><td>@Profile.PremiumUntil</td></tr>
+            }
+            @if (Profile.UserProfileMetadata?.LegacyUsername is not null)
+            {
+                <tr><td style="color: var(--text-muted);">Legacy Username</td><td>@Profile.UserProfileMetadata.LegacyUsername</td></tr>
+            }
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public UserProfile Profile { get; set; } = default!;
+    [Parameter] public byte[]? AvatarBytes { get; set; }
+    [Parameter] public string? AvatarMimeType { get; set; }
+
+    private bool _emailRevealed;
+}

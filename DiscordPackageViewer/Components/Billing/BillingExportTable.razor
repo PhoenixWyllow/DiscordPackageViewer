@@ -1,0 +1,74 @@
+@using System.Text.Json
+
+<h3 class="section-title">@Export.Section</h3>
+@if (Export.Metadata?.Description is not null)
+{
+    <p class="section-subtitle">@Export.Metadata.Description</p>
+}
+
+<div class="card" style="overflow-x: auto;">
+    @if (Export.Metadata?.Columns.Any() == true && Export.Records.Any())
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    @foreach (var col in Export.Metadata.Columns)
+                    {
+                        <th title="@col.Description">@col.Name</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var record in Export.Records.Take(100))
+                {
+                    <tr>
+                        @foreach (var col in Export.Metadata.Columns)
+                        {
+                            <td>@GetCellValue(record, col.Name)</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (Export.Records.Count > 100)
+        {
+            <p class="text-muted mt-1">Showing first 100 of @Export.Records.Count records.</p>
+        }
+    }
+    else
+    {
+        <p class="text-muted">No records in this section.</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DataExportEnvelope Export { get; set; } = default!;
+
+    private static string GetCellValue(JsonElement record, string columnName)
+    {
+        if (record.ValueKind != JsonValueKind.Object) return "\u2014";
+
+        var propName = columnName.Replace(" ", "_").ToLowerInvariant();
+
+        foreach (var prop in record.EnumerateObject())
+        {
+            if (prop.Name.Equals(propName, StringComparison.OrdinalIgnoreCase) ||
+                prop.Name.Replace("_", " ").Equals(columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return prop.Value.ValueKind switch
+                {
+                    JsonValueKind.String => prop.Value.GetString() ?? "\u2014",
+                    JsonValueKind.Number => prop.Value.GetRawText(),
+                    JsonValueKind.True => "Yes",
+                    JsonValueKind.False => "No",
+                    JsonValueKind.Null => "\u2014",
+                    _ => prop.Value.GetRawText().Length > 100
+                        ? prop.Value.GetRawText()[..100] + "..."
+                        : prop.Value.GetRawText()
+                };
+            }
+        }
+
+        return "\u2014";
+    }
+}

@@ -1,0 +1,43 @@
+@* Monthly message histogram — own render boundary (iterates ALL messages). *@
+
+@if (monthlyCounts.Any())
+{
+    <h3 class="section-title">Messages Over Time</h3>
+    <div class="card">
+        <div style="display: flex; align-items: flex-end; gap: 2px; height: 120px; overflow-x: auto;">
+            @foreach (var m in monthlyCounts)
+            {
+                var barHeight = (double)m.Count / maxMonthly * 100;
+                <div title="@m.Label: @m.Count messages"
+                     style="flex: 1; min-width: 8px; max-width: 24px; height: @(barHeight.ToString("F0"))%; background: var(--accent-primary); border-radius: 2px 2px 0 0; cursor: default;"></div>
+            }
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.6875rem; color: var(--text-muted);">
+            <span>@monthlyCounts.First().Label</span>
+            <span>@monthlyCounts.Last().Label</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<string, LoadedChannel> Channels { get; set; } = new Dictionary<string, LoadedChannel>();
+
+    private record MonthBucket(string Label, int Count);
+
+    private List<MonthBucket> monthlyCounts = [];
+    private int maxMonthly = 1;
+
+    protected override void OnParametersSet()
+    {
+        monthlyCounts = Channels.Values
+            .SelectMany(c => c.Messages)
+            .Where(m => m.ParsedTimestamp.HasValue)
+            .GroupBy(m => new { m.ParsedTimestamp!.Value.Year, m.ParsedTimestamp!.Value.Month })
+            .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+            .Select(g => new MonthBucket($"{g.Key.Year}-{g.Key.Month:D2}", g.Count()))
+            .ToList();
+
+        maxMonthly = monthlyCounts.Any() ? monthlyCounts.Max(m => m.Count) : 1;
+    }
+}

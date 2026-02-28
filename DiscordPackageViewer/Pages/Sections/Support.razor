@@ -1,17 +1,42 @@
 @page "/support"
 @inject PackageLoaderService Loader
+@inject NavigationManager Nav
+@inject ToastService Toast
 
 <PageTitle>Support Tickets — Discord Package Viewer</PageTitle>
 
 <div class="content-header">🎫 Support Tickets</div>
 <div class="content-body">
-    @if (Loader.Data is not { } data || !data.SupportTickets.Any())
+    @if (selectedTicket is not null)
     {
-        <p class="text-muted">No support tickets found in the package.</p>
-        return;
-    }
+        <div style="margin-bottom: 16px;">
+            <span style="cursor: pointer; color: var(--text-link); font-size: 0.875rem;" @onclick="() => selectedTicket = null">
+                ← Back to ticket list
+            </span>
+        </div>
 
-    @if (selectedTicket is null)
+        <div class="card" style="margin-bottom: 16px;">
+            <div style="font-size: 1.125rem; font-weight: 700;">@selectedTicket.Subject</div>
+            <div class="text-muted" style="margin-top: 4px;">
+                Ticket #@selectedTicket.TicketId · @selectedTicket.Status · @selectedTicket.CreatedAt
+            </div>
+        </div>
+
+        <h3 class="section-title">Conversation (@selectedTicket.Comments.Count messages)</h3>
+        <div class="card">
+            @foreach (var comment in selectedTicket.Comments)
+            {
+                <div class="ticket-comment">
+                    <div class="comment-author @(comment.Author == "User" ? "author-user" : "author-agent")">
+                        @comment.Author
+                    </div>
+                    <div class="comment-body">@comment.Comment</div>
+                    <div class="comment-date">@comment.CreatedAt</div>
+                </div>
+            }
+        </div>
+    }
+    else if (Loader.Data is { } data && data.SupportTickets.Any())
     {
         <h3 class="section-title">Tickets (@data.SupportTickets.Count)</h3>
         <div class="card">
@@ -45,37 +70,21 @@
             </table>
         </div>
     }
-    else
+    else if (Loader.IsLoaded)
     {
-        <div style="margin-bottom: 16px;">
-            <span style="cursor: pointer; color: var(--text-link); font-size: 0.875rem;" @onclick="() => selectedTicket = null">
-                ← Back to ticket list
-            </span>
-        </div>
-
-        <div class="card" style="margin-bottom: 16px;">
-            <div style="font-size: 1.125rem; font-weight: 700;">@selectedTicket.Subject</div>
-            <div class="text-muted" style="margin-top: 4px;">
-                Ticket #@selectedTicket.TicketId · @selectedTicket.Status · @selectedTicket.CreatedAt
-            </div>
-        </div>
-
-        <h3 class="section-title">Conversation (@selectedTicket.Comments.Count messages)</h3>
-        <div class="card">
-            @foreach (var comment in selectedTicket.Comments)
-            {
-                <div class="ticket-comment">
-                    <div class="comment-author @(comment.Author == "User" ? "author-user" : "author-agent")">
-                        @comment.Author
-                    </div>
-                    <div class="comment-body">@comment.Comment</div>
-                    <div class="comment-date">@comment.CreatedAt</div>
-                </div>
-            }
-        </div>
+        <p class="text-muted">No support tickets found in the package.</p>
     }
 </div>
 
 @code {
     private SupportTicket? selectedTicket;
+
+    protected override void OnInitialized()
+    {
+        if (!Loader.IsLoaded)
+        {
+            Toast.Show("Please load a package first.", ToastLevel.Warning);
+            Nav.NavigateTo("/");
+        }
+    }
 }

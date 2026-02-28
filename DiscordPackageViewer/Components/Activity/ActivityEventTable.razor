@@ -1,0 +1,43 @@
+@using System.Text.Json
+
+<h3 class="section-title">@Title (@Events.Count.ToString("N0") events)</h3>
+<div class="card" style="max-height: 500px; overflow-y: auto;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Event Data (JSON preview)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < _preview.Count; i++)
+            {
+                <tr>
+                    <td class="text-muted" style="width: 60px;">@(i + 1)</td>
+                    <td><code style="font-size: 0.75rem; color: var(--text-secondary); word-break: break-all;">@_preview[i]</code></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Events.Count > MaxRows)
+    {
+        <p class="text-muted mt-1">Showing first @MaxRows of @Events.Count.ToString("N0") events.</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public List<JsonElement> Events { get; set; } = [];
+    [Parameter] public int MaxRows { get; set; } = 500;
+
+    private List<string> _preview = [];
+
+    protected override void OnParametersSet()
+    {
+        _preview = Events.Take(MaxRows).Select(e =>
+        {
+            var json = e.ToString();
+            return json.Length > 200 ? json[..200] + "..." : json;
+        }).ToList();
+    }
+}

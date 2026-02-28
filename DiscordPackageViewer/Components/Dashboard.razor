@@ -4,34 +4,7 @@
 {
     <div class="content-header">📊 Dashboard</div>
     <div class="content-body">
-        <!-- Stat Cards -->
-        <div class="stat-cards">
-            <div class="stat-card">
-                <span class="stat-label">Total Messages</span>
-                <span class="stat-value">@data.TotalMessages.ToString("N0")</span>
-                <span class="stat-sub">across @data.TotalChannels channels</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-label">Servers</span>
-                <span class="stat-value">@data.TotalServers</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-label">Friends</span>
-                <span class="stat-value">@data.TotalFriends</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-label">DM Channels</span>
-                <span class="stat-value">@data.Channels.Values.Count(c => c.IsDm)</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-label">Connections</span>
-                <span class="stat-value">@(data.UserProfile?.Connections?.Count ?? 0)</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-label">Support Tickets</span>
-                <span class="stat-value">@data.SupportTickets.Count</span>
-            </div>
-        </div>
+        <StatCardGrid Items="@GetStats(data)" />
 
         <!-- User Profile Summary -->
         @if (data.UserProfile is { } profile)
@@ -65,90 +38,24 @@
             </div>
         }
 
-        <!-- Top Channels by Message Count -->
-        <h3 class="section-title">Top Channels</h3>
-        <div class="card">
-            @foreach (var ch in data.Channels.Values
-                .OrderByDescending(c => c.MessageCount)
-                .Take(15))
-            {
-                var maxCount = data.Channels.Values.Max(c => c.MessageCount);
-                var pct = maxCount > 0 ? (double)ch.MessageCount / maxCount * 100 : 0;
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                    <div style="width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; color: var(--text-secondary);">
-                        @(ch.IsDm ? "🔒" : "#") @ch.DisplayName
-                    </div>
-                    <div style="flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                        <div style="height: 100%; width: @(pct.ToString("F1"))%; background: var(--accent-primary); border-radius: 4px;"></div>
-                    </div>
-                    <div style="width: 60px; text-align: right; font-size: 0.8125rem; font-weight: 600;">
-                        @ch.MessageCount.ToString("N0")
-                    </div>
-                </div>
-            }
-        </div>
+        <TopChannelsChart Channels="data.Channels" />
+        <MessagesTimeline Channels="data.Channels" />
 
-        <!-- Messages Over Time -->
-        <h3 class="section-title">Messages Over Time</h3>
-        <div class="card">
-            @{
-                var monthlyCounts = data.Channels.Values
-                    .SelectMany(c => c.Messages)
-                    .Where(m => m.ParsedTimestamp.HasValue)
-                    .GroupBy(m => new { m.ParsedTimestamp!.Value.Year, m.ParsedTimestamp!.Value.Month })
-                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
-                    .Select(g => new { Label = $"{g.Key.Year}-{g.Key.Month:D2}", Count = g.Count() })
-                    .ToList();
-
-                var maxMonthly = monthlyCounts.Any() ? monthlyCounts.Max(m => m.Count) : 1;
-            }
-            <div style="display: flex; align-items: flex-end; gap: 2px; height: 120px; overflow-x: auto;">
-                @foreach (var m in monthlyCounts)
-                {
-                    var barHeight = (double)m.Count / maxMonthly * 100;
-                    <div title="@m.Label: @m.Count messages" style="flex: 1; min-width: 8px; max-width: 24px; height: @(barHeight.ToString("F0"))%; background: var(--accent-primary); border-radius: 2px 2px 0 0; cursor: default;"></div>
-                }
-            </div>
-            @if (monthlyCounts.Any())
-            {
-                <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.6875rem; color: var(--text-muted);">
-                    <span>@monthlyCounts.First().Label</span>
-                    <span>@monthlyCounts.Last().Label</span>
-                </div>
-            }
-        </div>
-
-        <!-- Server Overview -->
         @if (data.Servers.Any())
         {
-            <h3 class="section-title">Servers</h3>
-            <div class="card-grid" style="margin-bottom: 24px;">
-                @foreach (var server in data.Servers.Values.OrderBy(s => s.DisplayName))
-                {
-                    <div class="server-card">
-                        <div class="server-icon">
-                            @if (server.IconDataUrl is not null)
-                            {
-                                <img src="@server.IconDataUrl" alt="@server.DisplayName" />
-                            }
-                            else
-                            {
-                                @server.DisplayName[..Math.Min(2, server.DisplayName.Length)].ToUpper()
-                            }
-                        </div>
-                        <div class="server-info">
-                            <div class="server-name">@server.DisplayName</div>
-                            <div class="server-detail">
-                                @server.Channels.Count channels
-                                @if (server.Emojis.Any())
-                                {
-                                    <span> · @server.Emojis.Count emoji</span>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
+            <ServerGrid Servers="data.Servers.Values.ToList()" Title="Servers" />
         }
     </div>
+}
+
+@code {
+    private static StatCardGrid.StatItem[] GetStats(PackageData data) =>
+    [
+        new("Total Messages", data.TotalMessages.ToString("N0"), $"across {data.TotalChannels} channels"),
+        new("Servers", data.TotalServers.ToString()),
+        new("Friends", data.TotalFriends.ToString()),
+        new("DM Channels", data.Channels.Values.Count(c => c.IsDm).ToString()),
+        new("Connections", (data.UserProfile?.Connections?.Count ?? 0).ToString()),
+        new("Support Tickets", data.SupportTickets.Count.ToString()),
+    ];
 }

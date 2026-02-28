@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; font-src 'self'; worker-src 'self' blob:; frame-src 'none'; object-src 'none';" />
-    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=()" />
     <title>Discord Package Viewer</title>
     <base href="/" />
     <link rel="preload" id="webassembly" />
@@ -26,10 +25,12 @@
     </div>
 
     <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="." class="reload">Reload</a>
-        <span class="dismiss">🗙</span>
+        <span class="blazor-error-icon">❌</span>
+        <span>Something went wrong. <a href="." class="reload">Reload the app</a></span>
+        <span class="dismiss" onclick="this.parentElement.style.display='none'">✕</span>
     </div>
+    <script src="js/drop.js"></script>
+    <script src="js/resize.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 

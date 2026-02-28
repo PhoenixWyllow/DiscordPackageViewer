@@ -34,5 +34,5 @@ public class PackageData
     public int TotalMessages => Channels.Values.Sum(c => c.MessageCount);
     public int TotalChannels => Channels.Count;
     public int TotalServers => ServerIndex.Count;
-    public int TotalFriends => UserProfile?.Relationships?.Count(r => r.Type == 1) ?? 0;
+    public int TotalFriends => UserProfile?.Relationships?.Count(r => string.Equals(r.Type, "FRIEND", StringComparison.OrdinalIgnoreCase)) ?? 0;
 }
