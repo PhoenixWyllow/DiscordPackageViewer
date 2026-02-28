@@ -1,3 +1,19 @@
+/* GitHub corner link */
+.github-corner {
+    position: fixed;
+    top: 12px;
+    right: 14px;
+    z-index: 1000;
+    color: var(--text-muted);
+    opacity: 0.6;
+    transition: opacity 0.2s ease, color 0.2s ease;
+    line-height: 0;
+}
+.github-corner:hover {
+    opacity: 1;
+    color: var(--text-normal);
+}
+
 /* Page navigation loading overlay */
 .page-loading-overlay {
     position: fixed; inset: 0; z-index: 9999;

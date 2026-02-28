@@ -25,9 +25,15 @@
     <div class="error-report-actions">
         <button class="upload-btn" @onclick="OnRecover">🔄 Recover</button>
         <a class="upload-btn error-report-gh-btn" href="@IssueUrl" target="_blank" rel="noopener noreferrer">
-            🐛 Report on GitHub
+            <GitHubIcon Size="16" Style="vertical-align: text-bottom;" />
+            Report on GitHub
         </a>
     </div>
+
+    <p class="text-muted" style="margin-top: 12px; font-size: 0.8125rem;">
+        Or report manually at
+        <a href="@(AppConstants.GitHubRepo + "/issues")" target="_blank" rel="noopener noreferrer" style="color: var(--text-link);">@(AppConstants.GitHubRepo + "/issues")</a>
+    </p>
 </div>
 
 @code {
