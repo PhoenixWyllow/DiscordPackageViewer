@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+    <License>BSD-3-Clause</License>
+    <Authors>Will Russell (pw.dev@outlook.com)</Authors>
+    <Description>Discord package viewer built with Blazor WebAssembly.</Description>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,6 +1,8 @@
 using System.Reflection;
 
 [assembly: AssemblyMetadata("ProjectUrl", DiscordPackageViewer.AppConstants.GitHubRepo)]
+[assembly: AssemblyMetadata("RepositoryUrl", DiscordPackageViewer.AppConstants.GitHubRepo)]
+[assembly: AssemblyMetadata("RepositoryType", "git")]
 
 namespace DiscordPackageViewer;
 
