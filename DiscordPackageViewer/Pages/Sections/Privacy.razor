@@ -1,0 +1,62 @@
+@page "/privacy"
+
+<PageTitle>Privacy — Discord Package Viewer</PageTitle>
+
+<div class="content-header">🔒 Privacy Information</div>
+<div class="content-body">
+    <h3 class="section-title">Your Data Stays on Your Machine</h3>
+
+    <div class="card">
+        <p style="line-height: 1.6;">
+            This application is designed with <strong>absolute data privacy</strong> as its core principle.
+            Here is exactly how your data is protected:
+        </p>
+    </div>
+
+    <div class="stat-cards" style="margin-bottom: 24px;">
+        <div class="stat-card">
+            <span class="stat-label">Network Requests</span>
+            <span class="stat-value" style="color: var(--text-positive);">Zero</span>
+            <span class="stat-sub">CSP blocks all outbound connections</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Data Storage</span>
+            <span class="stat-value" style="color: var(--text-positive);">None</span>
+            <span class="stat-sub">No localStorage, cookies, or IndexedDB</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Server Processing</span>
+            <span class="stat-value" style="color: var(--text-positive);">None</span>
+            <span class="stat-sub">100% client-side WebAssembly</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Telemetry</span>
+            <span class="stat-value" style="color: var(--text-positive);">None</span>
+            <span class="stat-sub">No analytics or crash reporting</span>
+        </div>
+    </div>
+
+    <h3 class="section-title">How It Works</h3>
+    <div class="card">
+        <ul style="line-height: 2; padding-left: 20px; margin: 0;">
+            <li><strong>ZIP Processing:</strong> Your Discord data package is read and extracted entirely in your browser using WebAssembly (compiled C#). The ZIP file never leaves your machine.</li>
+            <li><strong>Content Security Policy:</strong> The HTML page includes a strict CSP header that instructs your browser to block any outbound network connections (<code style="color: var(--text-link);">connect-src 'self'</code>). Even if a bug existed, the browser itself would block the request.</li>
+            <li><strong>No Persistent Storage:</strong> The app does not use localStorage, sessionStorage, IndexedDB, or cookies. When you close the tab, all data is immediately freed from memory.</li>
+            <li><strong>No Service Worker:</strong> Nothing is cached between sessions.</li>
+            <li><strong>No Backend:</strong> When hosted on Azure Static Web Apps or GitHub Pages, the server only serves static HTML/CSS/JS files. There is no server-side code, no API endpoints, and no database.</li>
+            <li><strong>Permissions Policy:</strong> Camera, microphone, geolocation, and payment APIs are explicitly disabled.</li>
+            <li><strong>Open Source:</strong> You can audit every line of code yourself.</li>
+        </ul>
+    </div>
+
+    <h3 class="section-title">How to Verify</h3>
+    <div class="card">
+        <ol style="line-height: 2; padding-left: 20px; margin: 0;">
+            <li>Open your browser's <strong>Developer Tools</strong> (F12)</li>
+            <li>Go to the <strong>Network</strong> tab</li>
+            <li>Load a Discord package and browse your data</li>
+            <li>Observe that <strong>zero network requests</strong> are made after the initial page load</li>
+            <li>Check the <strong>Application</strong> tab → Storage: all sections should be empty</li>
+        </ol>
+    </div>
+</div>

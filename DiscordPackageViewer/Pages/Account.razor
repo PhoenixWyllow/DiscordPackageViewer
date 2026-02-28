@@ -1,0 +1,194 @@
+@page "/account"
+@inject PackageLoaderService Loader
+
+<PageTitle>Account — Discord Package Viewer</PageTitle>
+
+<div class="content-header">👤 Account</div>
+<div class="content-body">
+    @if (Loader.Data?.UserProfile is not { } profile)
+    {
+        <p class="text-muted">No account data loaded.</p>
+        return;
+    }
+
+    <!-- Profile Card -->
+    <div class="card" style="display: flex; align-items: flex-start; gap: 20px;">
+        @if (Loader.Data!.AvatarBytes is not null)
+        {
+            <img src="data:@Loader.Data.AvatarMimeType;base64,@Convert.ToBase64String(Loader.Data.AvatarBytes)"
+                 class="avatar avatar-lg" alt="Avatar" />
+        }
+        <div style="flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700;">@(profile.GlobalName ?? profile.Username)</div>
+            <div class="text-muted">@profile.Username@(profile.Discriminator > 0 ? $"#{profile.Discriminator}" : "")</div>
+            <table class="data-table mt-2" style="max-width: 500px;">
+                <tr><td style="color: var(--text-muted); width: 140px;">User ID</td><td>@profile.Id</td></tr>
+                <tr>
+                    <td style="color: var(--text-muted);">Email</td>
+                    <td>
+                        @if (showEmail)
+                        {
+                            @profile.Email
+                        }
+                        else
+                        {
+                            <span>••••••••</span>
+                        }
+                        <span style="cursor: pointer; margin-left: 8px; font-size: 0.8125rem;" @onclick="() => showEmail = !showEmail">
+                            @(showEmail ? "🙈 Hide" : "👁 Show")
+                        </span>
+                    </td>
+                </tr>
+                <tr><td style="color: var(--text-muted);">Verified</td><td>@(profile.Verified ? "✅ Yes" : "❌ No")</td></tr>
+                <tr><td style="color: var(--text-muted);">Mobile</td><td>@(profile.HasMobile ? "📱 Yes" : "No")</td></tr>
+                @if (profile.PremiumUntil is not null)
+                {
+                    <tr><td style="color: var(--text-muted);">Premium Until</td><td>@profile.PremiumUntil</td></tr>
+                }
+                @if (profile.UserProfileMetadata?.LegacyUsername is not null)
+                {
+                    <tr><td style="color: var(--text-muted);">Legacy Username</td><td>@profile.UserProfileMetadata.LegacyUsername</td></tr>
+                }
+            </table>
+        </div>
+    </div>
+
+    <!-- Flags -->
+    @if (profile.Flags.Any())
+    {
+        <h3 class="section-title">Account Flags</h3>
+        <div class="card" style="display: flex; flex-wrap: wrap; gap: 4px;">
+            @foreach (var flag in profile.Flags)
+            {
+                <span class="chip">@flag.Replace("_", " ")</span>
+            }
+        </div>
+    }
+
+    <!-- Connections -->
+    @if (profile.Connections.Any())
+    {
+        <h3 class="section-title">Connections</h3>
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th>Verified</th>
+                        <th>Visibility</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var conn in profile.Connections)
+                    {
+                        <tr>
+                            <td><span class="chip chip-accent">@conn.Type</span></td>
+                            <td>@conn.Name</td>
+                            <td>@(conn.Verified ? "✅" : "❌")</td>
+                            <td>@(conn.Visibility == 1 ? "Public" : "Private")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <!-- Relationships (Friends) -->
+    @if (profile.Relationships.Any())
+    {
+        <h3 class="section-title">Relationships (@profile.Relationships.Count)</h3>
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Username</th>
+                        <th>Display Name</th>
+                        <th>ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rel in profile.Relationships.OrderBy(r => r.Type).ThenBy(r => r.User?.Username))
+                    {
+                        <tr>
+                            <td>
+                                <span class="chip @(rel.Type == 1 ? "chip-positive" : rel.Type == 2 ? "chip-danger" : "")">
+                                    @(rel.Type switch { 1 => "Friend", 2 => "Blocked", 3 => "Incoming", 4 => "Outgoing", _ => $"Type {rel.Type}" })
+                                </span>
+                            </td>
+                            <td>@(rel.User?.Username ?? "Unknown")</td>
+                            <td>@(rel.User?.GlobalName ?? "—")</td>
+                            <td class="text-muted">@rel.Id</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <!-- Sessions -->
+    @if (profile.UserSessions.Any())
+    {
+        <h3 class="section-title">Sessions (@profile.UserSessions.Count)</h3>
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>OS</th>
+                        <th>Created</th>
+                        <th>Last Used</th>
+                        <th>MFA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var session in profile.UserSessions.Where(s => !s.IsSoftDeleted))
+                    {
+                        <tr>
+                            <td>@(session.UserData?.ClientInfo?.Platform ?? "—")</td>
+                            <td>@(session.UserData?.ClientInfo?.Os ?? "—")</td>
+                            <td>@(session.UserData?.CreationTime ?? "—")</td>
+                            <td>@(session.UserData?.ApproxLastUsedTime ?? "—")</td>
+                            <td>@(session.UserData?.IsMfa == true ? "✅" : "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <!-- Game Activity -->
+    @if (profile.UserActivityApplicationStatistics.Any())
+    {
+        <h3 class="section-title">Game Activity</h3>
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Application ID</th>
+                        <th>Total Duration</th>
+                        <th>First Played</th>
+                        <th>Last Played</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var stat in profile.UserActivityApplicationStatistics.OrderByDescending(s => s.TotalDuration))
+                    {
+                        var duration = TimeSpan.FromSeconds(stat.TotalDuration);
+                        <tr>
+                            <td>@stat.ApplicationId</td>
+                            <td>@($"{duration.Days}d {duration.Hours}h {duration.Minutes}m")</td>
+                            <td>@(stat.FirstPlayedAt ?? "—")</td>
+                            <td>@(stat.LastPlayedAt ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private bool showEmail;
+}

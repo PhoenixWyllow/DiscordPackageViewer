@@ -1,0 +1,14 @@
+@page "/{*pageRoute}"
+
+<PageTitle>Not Found — Discord Package Viewer</PageTitle>
+
+<div class="upload-zone" style="height: 100vh;">
+    <div class="upload-icon">🔍</div>
+    <h2>Page Not Found</h2>
+    <p class="text-muted">The page you're looking for doesn't exist.</p>
+    <a href="" class="upload-btn">Go to Home</a>
+</div>
+
+@code {
+    [Parameter] public string? PageRoute { get; set; }
+}

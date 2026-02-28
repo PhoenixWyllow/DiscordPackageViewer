@@ -1,0 +1,62 @@
+﻿@inject PackageLoaderService Loader
+
+<div class="nav-sidebar">
+    <div class="nav-sidebar-header">
+        📦 Package Viewer
+    </div>
+    <div class="nav-sidebar-content">
+        <div class="nav-category">Overview</div>
+        <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+            <span class="nav-icon">📊</span> Dashboard
+        </NavLink>
+
+        <div class="nav-category">Data</div>
+        <NavLink class="nav-item" href="messages">
+            <span class="nav-icon">💬</span> Messages
+            @if (Loader.Data is not null)
+            {
+                <span class="channel-count">@Loader.Data.TotalMessages.ToString("N0")</span>
+            }
+        </NavLink>
+        <NavLink class="nav-item" href="account">
+            <span class="nav-icon">👤</span> Account
+        </NavLink>
+        <NavLink class="nav-item" href="servers">
+            <span class="nav-icon">🏠</span> Servers
+            @if (Loader.Data is not null)
+            {
+                <span class="channel-count">@Loader.Data.TotalServers</span>
+            }
+        </NavLink>
+
+        <div class="nav-category">More</div>
+        <NavLink class="nav-item" href="activity">
+            <span class="nav-icon">📈</span> Activity
+        </NavLink>
+        <NavLink class="nav-item" href="ads">
+            <span class="nav-icon">🎯</span> Ads / Traits
+        </NavLink>
+        <NavLink class="nav-item" href="support">
+            <span class="nav-icon">🎫</span> Support Tickets
+        </NavLink>
+        <NavLink class="nav-item" href="billing">
+            <span class="nav-icon">💳</span> Billing
+        </NavLink>
+
+        <div class="nav-category">App</div>
+        <NavLink class="nav-item" href="privacy">
+            <span class="nav-icon">🔒</span> Privacy Info
+        </NavLink>
+        <div class="nav-item" @onclick="UnloadPackage">
+            <span class="nav-icon">📤</span> Unload Package
+        </div>
+    </div>
+</div>
+
+@code {
+    private void UnloadPackage()
+    {
+        Loader.Unload();
+    }
+}
+

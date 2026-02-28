@@ -1,0 +1,95 @@
+@page "/ads"
+@inject PackageLoaderService Loader
+
+<PageTitle>Ads & Traits — Discord Package Viewer</PageTitle>
+
+<div class="content-header">🎯 Ads & Traits</div>
+<div class="content-body">
+    @if (Loader.Data?.AdTraits is not { } traits)
+    {
+        <p class="text-muted">No ad traits data found in the package.</p>
+        return;
+    }
+
+    <h3 class="section-title">Your Ad Profile</h3>
+    <p class="section-subtitle">This is what Discord uses for targeted advertising.</p>
+
+    <!-- Demographics -->
+    <div class="card">
+        <div class="card-header">Demographics</div>
+        <table class="data-table">
+            <tr><td style="color: var(--text-muted); width: 200px;">Age Group</td><td>@(traits.AgeGroup ?? "Unknown")</td></tr>
+            <tr><td style="color: var(--text-muted);">Region</td><td>@(traits.RegRegion ?? "Unknown")</td></tr>
+            <tr><td style="color: var(--text-muted);">Country</td><td>@(traits.RegCountryCode ?? "Unknown")</td></tr>
+            <tr><td style="color: var(--text-muted);">Primary Platform (30d)</td><td>@(traits.PrimaryPlatformL30 ?? "Unknown")</td></tr>
+            <tr><td style="color: var(--text-muted);">Is Underage</td><td>@(traits.IsUnderage ? "Yes" : "No")</td></tr>
+            <tr><td style="color: var(--text-muted);">Active Subscription</td><td>@(traits.HasActiveSubscription ? "Yes" : "No")</td></tr>
+            <tr><td style="color: var(--text-muted);">Mobile Subscription</td><td>@(traits.HasActiveMobileSubscription ? "Yes" : "No")</td></tr>
+        </table>
+    </div>
+
+    @{
+        var tagGroups = new (string Label, List<string> Items)[] 
+        {
+            ("Game Names (365d)", traits.GameNamesL365),
+            ("Game Names (90d)", traits.GameNamesL90),
+            ("Genre Names (90d)", traits.GenreNamesL90),
+            ("Theme Names (90d)", traits.ThemeNamesL90),
+            ("Mobile Genre Names", traits.MobileGenreNames),
+            ("ML Mobile Genres", traits.MlMobileGenreNamesV1),
+            ("Movie & TV Genres", traits.MovieAndTvGenreNames),
+            ("Music & Audio Genres", traits.MusicAndAudioGenreNames),
+            ("Custom Audiences", traits.CustomAudiences),
+            ("Quest Enrolled", traits.QuestHistoryEnrolled),
+            ("Quest Rewards Claimed", traits.QuestHistoryRewardClaimed),
+        };
+    }
+
+    @foreach (var group in tagGroups.Where(g => g.Items.Any()))
+    {
+        <h3 class="section-title">@group.Label</h3>
+        <div class="card" style="display: flex; flex-wrap: wrap; gap: 4px;">
+            @foreach (var item in group.Items)
+            {
+                <span class="chip chip-accent">@item</span>
+            }
+        </div>
+    }
+
+    @if (tagGroups.All(g => !g.Items.Any()))
+    {
+        <div class="card">
+            <p class="text-muted">No targeting categories assigned to your profile.</p>
+        </div>
+    }
+
+    <!-- Raw IDs -->
+    @{
+        var idGroups = new (string Label, List<string> Items)[]
+        {
+            ("Game IDs (30d)", traits.GameIdsL30),
+            ("Game IDs (90d)", traits.GameIdsL90),
+            ("Game IDs (365d)", traits.GameIdsL365),
+            ("Game IDs (730d)", traits.GameIdsL730),
+            ("Genre IDs (90d)", traits.GenreIdsL90),
+            ("Theme IDs (90d)", traits.ThemeIdsL90),
+        };
+    }
+
+    @if (idGroups.Any(g => g.Items.Any()))
+    {
+        <h3 class="section-title">Raw IDs</h3>
+        @foreach (var group in idGroups.Where(g => g.Items.Any()))
+        {
+            <div class="card">
+                <div class="card-header">@group.Label</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    @foreach (var id in group.Items)
+                    {
+                        <span class="chip">@id</span>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>

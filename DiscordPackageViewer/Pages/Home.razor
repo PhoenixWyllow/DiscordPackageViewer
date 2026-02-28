@@ -1,0 +1,49 @@
+﻿@page "/"
+@inject PackageLoaderService Loader
+@inject NavigationManager Nav
+
+<PageTitle>Discord Package Viewer</PageTitle>
+
+@if (!Loader.IsLoaded)
+{
+    <div class="upload-zone">
+        <div class="upload-icon">📦</div>
+        <h2>Discord Package Viewer</h2>
+        <p>Load your Discord data package to explore your messages, account info, servers, and more. Everything runs locally in your browser — no data is ever sent anywhere.</p>
+
+        <label class="upload-btn">
+            📁 Select ZIP File
+            <InputFile OnChange="OnFileSelected" accept=".zip" style="display: none;" />
+        </label>
+
+        <div class="privacy-badge mt-2">
+            🔒 100% Client-Side — Zero Data Exfiltration
+        </div>
+
+        @if (Loader.Error is not null)
+        {
+            <p style="color: var(--text-danger); margin-top: 12px;">@Loader.Error</p>
+        }
+    </div>
+}
+else
+{
+    <Dashboard />
+}
+
+@code {
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        // Read the file into a MemoryStream BEFORE any state change triggers
+        // a re-render (which removes <InputFile> from DOM and kills the JS ref).
+        // Pass the stream directly — do NOT call .ToArray() to avoid an extra copy.
+        var ms = new MemoryStream();
+        await file.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024).CopyToAsync(ms);
+        ms.Position = 0;
+
+        await Loader.LoadFromZipAsync(ms);
+    }
+}

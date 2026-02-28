@@ -1,0 +1,81 @@
+@page "/support"
+@inject PackageLoaderService Loader
+
+<PageTitle>Support Tickets — Discord Package Viewer</PageTitle>
+
+<div class="content-header">🎫 Support Tickets</div>
+<div class="content-body">
+    @if (Loader.Data is not { } data || !data.SupportTickets.Any())
+    {
+        <p class="text-muted">No support tickets found in the package.</p>
+        return;
+    }
+
+    @if (selectedTicket is null)
+    {
+        <h3 class="section-title">Tickets (@data.SupportTickets.Count)</h3>
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ticket ID</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Comments</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var kv in data.SupportTickets.OrderByDescending(t => t.Value.CreatedAt))
+                    {
+                        var ticket = kv.Value;
+                        <tr style="cursor: pointer;" @onclick="() => selectedTicket = ticket">
+                            <td>@ticket.TicketId</td>
+                            <td>@ticket.Subject</td>
+                            <td>
+                                <span class="chip @(ticket.Status == "deleted" ? "chip-danger" : ticket.Status == "closed" ? "" : "chip-positive")">
+                                    @ticket.Status
+                                </span>
+                            </td>
+                            <td class="text-muted">@ticket.CreatedAt</td>
+                            <td>@ticket.Comments.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div style="margin-bottom: 16px;">
+            <span style="cursor: pointer; color: var(--text-link); font-size: 0.875rem;" @onclick="() => selectedTicket = null">
+                ← Back to ticket list
+            </span>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+            <div style="font-size: 1.125rem; font-weight: 700;">@selectedTicket.Subject</div>
+            <div class="text-muted" style="margin-top: 4px;">
+                Ticket #@selectedTicket.TicketId · @selectedTicket.Status · @selectedTicket.CreatedAt
+            </div>
+        </div>
+
+        <h3 class="section-title">Conversation (@selectedTicket.Comments.Count messages)</h3>
+        <div class="card">
+            @foreach (var comment in selectedTicket.Comments)
+            {
+                <div class="ticket-comment">
+                    <div class="comment-author @(comment.Author == "User" ? "author-user" : "author-agent")">
+                        @comment.Author
+                    </div>
+                    <div class="comment-body">@comment.Comment</div>
+                    <div class="comment-date">@comment.CreatedAt</div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private SupportTicket? selectedTicket;
+}

@@ -1,0 +1,57 @@
+@page "/activity"
+@inject PackageLoaderService Loader
+
+<PageTitle>Activity — Discord Package Viewer</PageTitle>
+
+<div class="content-header">📈 Activity</div>
+<div class="content-body">
+    @if (Loader.Data?.ActivityEvents is not { } events || !events.Any())
+    {
+        <p class="text-muted">No activity data found in the package. Activity files (analytics, reporting, tns) may be very large and take time to load.</p>
+        return;
+    }
+
+    <div class="stat-cards">
+        @foreach (var kv in events)
+        {
+            <div class="stat-card">
+                <span class="stat-label">@kv.Key</span>
+                <span class="stat-value">@kv.Value.Count.ToString("N0")</span>
+                <span class="stat-sub">events</span>
+            </div>
+        }
+    </div>
+
+    @foreach (var kv in events)
+    {
+        <h3 class="section-title">@kv.Key (@kv.Value.Count.ToString("N0") events)</h3>
+        <div class="card" style="max-height: 500px; overflow-y: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Event Data (JSON preview)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        var items = kv.Value.Take(500).ToList();
+                    }
+                    @for (var i = 0; i < items.Count; i++)
+                    {
+                        var json = items[i].ToString();
+                        var preview = json.Length > 200 ? json[..200] + "..." : json;
+                        <tr>
+                            <td class="text-muted" style="width: 60px;">@(i + 1)</td>
+                            <td><code style="font-size: 0.75rem; color: var(--text-secondary); word-break: break-all;">@preview</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (kv.Value.Count > 500)
+            {
+                <p class="text-muted mt-1">Showing first 500 of @kv.Value.Count.ToString("N0") events.</p>
+            }
+        </div>
+    }
+</div>

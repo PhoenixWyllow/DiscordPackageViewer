@@ -1,0 +1,49 @@
+﻿@inherits LayoutComponentBase
+@inject PackageLoaderService Loader
+
+@if (!Loader.IsLoaded && !Loader.IsLoading)
+{
+    <!-- Full-screen upload when no package loaded -->
+    <div class="app-container">
+        <div class="main-content">
+            @Body
+        </div>
+    </div>
+}
+else if (Loader.IsLoading)
+{
+    <div class="app-container">
+        <div class="main-content">
+            <div class="upload-zone">
+                <div class="upload-icon">📦</div>
+                <h2>@Loader.ProgressMessage</h2>
+                <div class="progress-bar-container" style="width: 300px; margin-top: 8px;">
+                    <div class="progress-bar-fill" style="width: @((Loader.Progress * 100).ToString("F0"))%"></div>
+                </div>
+                <p class="text-muted">@((Loader.Progress * 100).ToString("F0"))%</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Main app layout with sidebar -->
+    <div class="app-container">
+        <NavMenu />
+        <div class="main-content">
+            @Body
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Loader.OnStateChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Loader.OnStateChanged -= StateHasChanged;
+    }
+}

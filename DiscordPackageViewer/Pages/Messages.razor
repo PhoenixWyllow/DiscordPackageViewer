@@ -1,0 +1,157 @@
+@page "/messages"
+@inject PackageLoaderService Loader
+
+<PageTitle>Messages — Discord Package Viewer</PageTitle>
+
+@if (Loader.Data is not { } data)
+{
+    <div class="content-header">💬 Messages</div>
+    <div class="content-body"><p class="text-muted">No package loaded.</p></div>
+    return;
+}
+
+<div style="display: flex; height: 100%; overflow: hidden;">
+    <!-- Channel sidebar -->
+    <div style="width: 260px; min-width: 260px; background: var(--bg-secondary); display: flex; flex-direction: column; border-right: 1px solid var(--bg-tertiary); overflow: hidden;">
+        <div style="padding: 12px; border-bottom: 1px solid var(--bg-tertiary);">
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" placeholder="Search channels..." @bind="channelSearch" @bind:event="oninput" />
+            </div>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 4px 0;">
+            <!-- DMs -->
+            @{
+                var filteredChannels = data.Channels.Values
+                    .Where(c => string.IsNullOrEmpty(channelSearch) ||
+                        c.DisplayName.Contains(channelSearch, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                var dmChannels = filteredChannels.Where(c => c.IsDm).OrderByDescending(c => c.MessageCount).ToList();
+                var serverGroups = filteredChannels.Where(c => !c.IsDm)
+                    .GroupBy(c => c.ServerName ?? "Unknown")
+                    .OrderBy(g => g.Key)
+                    .ToList();
+            }
+
+            @if (dmChannels.Any())
+            {
+                <div class="nav-category">Direct Messages (@dmChannels.Count)</div>
+                @foreach (var ch in dmChannels)
+                {
+                    <div class="channel-list-item @(selectedChannelId == ch.ChannelId ? "active" : "")"
+                         @onclick="() => SelectChannel(ch.ChannelId)">
+                        <span class="channel-hash">@("🔒")</span>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@ch.DisplayName</span>
+                        <span class="channel-count">@ch.MessageCount</span>
+                    </div>
+                }
+            }
+
+            @foreach (var group in serverGroups)
+            {
+                <div class="nav-category">@group.Key (@group.Count())</div>
+                @foreach (var ch in group.OrderByDescending(c => c.MessageCount))
+                {
+                    <div class="channel-list-item @(selectedChannelId == ch.ChannelId ? "active" : "")"
+                         @onclick="() => SelectChannel(ch.ChannelId)">
+                        <span class="channel-hash">#</span>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@ch.DisplayName</span>
+                        <span class="channel-count">@ch.MessageCount</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- Message display area -->
+    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+        @if (selectedChannelId is not null && data.Channels.TryGetValue(selectedChannelId, out var channel))
+        {
+            <div class="content-header">
+                <span>@(channel.IsDm ? "🔒" : "#")</span>
+                @channel.DisplayName
+                <span class="text-muted" style="font-size: 0.8125rem; font-weight: 400; margin-left: auto;">
+                    @channel.MessageCount.ToString("N0") messages
+                </span>
+            </div>
+
+            <!-- Message search -->
+            <div style="padding: 8px 16px; border-bottom: 1px solid var(--bg-tertiary);">
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="text" placeholder="Search messages..." @bind="messageSearch" @bind:event="oninput" />
+                </div>
+            </div>
+
+            <div style="flex: 1; overflow-y: auto; padding: 8px 0;">
+                @{
+                    var messages = channel.Messages
+                        .Where(m => string.IsNullOrEmpty(messageSearch) ||
+                            m.Contents.Contains(messageSearch, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    string? lastDate = null;
+                }
+
+                <div class="message-list">
+                    <Virtualize Items="messages" Context="msg" OverscanCount="20">
+                        @{
+                            var msgDate = msg.ParsedTimestamp?.ToString("MMMM d, yyyy") ?? "Unknown Date";
+                            var showDivider = msgDate != lastDate;
+                            lastDate = msgDate;
+                        }
+
+                        @if (showDivider)
+                        {
+                            <div class="message-date-divider">
+                                <span>@msgDate</span>
+                            </div>
+                        }
+
+                        <div class="message-group">
+                            <div class="message-item">
+                                <div class="message-timestamp">
+                                    @(msg.ParsedTimestamp?.ToString("HH:mm") ?? "")
+                                </div>
+                                <div>
+                                    <div class="message-content @(string.IsNullOrEmpty(msg.Contents) ? "empty-content" : "")">
+                                        @(string.IsNullOrEmpty(msg.Contents) ? "(no text content)" : msg.Contents)
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(msg.Attachments))
+                                    {
+                                        @foreach (var att in msg.Attachments.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                                        {
+                                            var filename = att.Contains('/') ? att[(att.LastIndexOf('/') + 1)..] : att;
+                                            <div class="message-attachment">📎 @filename</div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </Virtualize>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="upload-zone" style="height: 100%;">
+                <div class="upload-icon">💬</div>
+                <h2>Select a channel</h2>
+                <p class="text-muted">Choose a channel from the sidebar to view messages.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string? selectedChannelId;
+    private string channelSearch = "";
+    private string messageSearch = "";
+
+    private void SelectChannel(string channelId)
+    {
+        selectedChannelId = channelId;
+        messageSearch = "";
+    }
+}
