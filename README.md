@@ -2,6 +2,10 @@
 
 A client-side Blazor WebAssembly app for exploring your Discord data export package. Everything runs locally in your browser — **no data is ever sent anywhere**.
 
+This project is open source under the BSD 3-Clause License. Contributions and feedback are welcome!
+
+It is not affiliated with or endorsed by Discord or any affiliated entities. All trademarks are the property of their respective owners.
+
 ## Features
 
 - **100% Client-Side** — Your data never leaves your browser. A strict Content Security Policy blocks all outbound network requests.
